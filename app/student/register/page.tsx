@@ -10,7 +10,6 @@ import * as z from "zod";
 // Form validation schema
 const registrationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   dateOfBirth: z.string().refine((date) => {
     const birthDate = new Date(date);
@@ -188,14 +187,6 @@ export default function StudentRegistration() {
                   </label>
                   <input {...register("fullName")} type="text" id="fullName" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] placeholder-[#C7D1E0] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" placeholder="Enter your full name" />
                   {errors.fullName && <p className="mt-1 text-sm text-red-300">{errors.fullName.message}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-[#FFFFFF] mb-1">
-                    Email Address *
-                  </label>
-                  <input {...register("email")} type="email" id="email" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] placeholder-[#C7D1E0] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" placeholder="your.email@example.com" />
-                  {errors.email && <p className="mt-1 text-sm text-red-300">{errors.email.message}</p>}
                 </div>
 
                 <div>
