@@ -2,17 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#0000]/80 backdrop-blur-md border-b border-[#9fb3d1]/10">
@@ -29,26 +22,10 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link href="/" className={`transition-colors font-medium ${mounted && pathname === "/" ? "text-[#D4AF37] border-b-2 border-[#D4AF37] pb-1" : "text-[#FFFFFF] hover:text-[#D4AF37]"}`}>
-              Home
-            </Link>
-            <Link href="/leaderboard" className={`transition-colors font-medium ${mounted && pathname === "/leaderboard" ? "text-[#D4AF37] border-b-2 border-[#D4AF37] pb-1" : "text-[#FFFFFF] hover:text-[#D4AF37]"}`}>
-              Leaderboard
-            </Link>
-            <Link href="/contact" className={`transition-colors font-medium ${mounted && pathname === "/contact" ? "text-[#D4AF37] border-b-2 border-[#D4AF37] pb-1" : "text-[#FFFFFF] hover:text-[#D4AF37]"}`}>
-              Contact
-            </Link>
-          </div>
-
           {/* Action Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link href="/login" className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-[#FFFFFF]/50 text-[#FFFFFF] rounded-lg hover:bg-white/20 transition-all duration-300 font-medium">
-              Login
-            </Link>
             <Link href="/student/register" className="px-6 py-2 bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] rounded-lg hover:bg-[#4CAF50]/30 transition-all duration-300 font-semibold shadow-lg shadow-[#4CAF50]/20">
-              Get Started
+              Register
             </Link>
           </div>
 
@@ -64,23 +41,9 @@ export default function Header() {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-[#9FB3D1]/30">
             <div className="flex flex-col space-y-4">
-              <Link href="/" className={`transition-colors font-medium ${mounted && pathname === "/" ? "text-[#D4AF37]" : "text-[#FFFFFF] hover:text-[#D4AF37]"}`} onClick={() => setIsMenuOpen(false)}>
-                Home
+              <Link href="/student/register" className="px-4 py-2 bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] rounded-lg hover:bg-[#4CAF50]/30 transition-all duration-300 font-semibold text-center shadow-lg shadow-[#4CAF50]/20" onClick={() => setIsMenuOpen(false)}>
+                Register
               </Link>
-              <Link href="/leaderboard" className={`transition-colors font-medium ${mounted && pathname === "/leaderboard" ? "text-[#D4AF37]" : "text-[#FFFFFF] hover:text-[#D4AF37]"}`} onClick={() => setIsMenuOpen(false)}>
-                Leaderboard
-              </Link>
-              <Link href="/contact" className={`transition-colors font-medium ${mounted && pathname === "/contact" ? "text-[#D4AF37]" : "text-[#FFFFFF] hover:text-[#D4AF37]"}`} onClick={() => setIsMenuOpen(false)}>
-                Contact
-              </Link>
-              <div className="flex flex-col space-y-2 pt-4 border-t border-[#9FB3D1]/30">
-                <Link href="/login" className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-[#FFFFFF]/50 text-[#FFFFFF] rounded-lg hover:bg-white/20 transition-all duration-300 font-medium text-center" onClick={() => setIsMenuOpen(false)}>
-                  Login
-                </Link>
-                <Link href="/student/register" className="px-4 py-2 bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] rounded-lg hover:bg-[#4CAF50]/30 transition-all duration-300 font-semibold text-center shadow-lg shadow-[#4CAF50]/20" onClick={() => setIsMenuOpen(false)}>
-                  Get Started
-                </Link>
-              </div>
             </div>
           </div>
         )}

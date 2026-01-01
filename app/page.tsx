@@ -116,6 +116,108 @@ export default function Home() {
         </div>
       </main>
 
+      {/* Prizes Section */}
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-block mb-4">
+              <span className="text-5xl md:text-6xl">🏆</span>
+            </div>
+            <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-[#FFFFFF] mb-4">
+              Competition <span className="bg-gradient-to-r from-[#D4AF37] via-[#F2D27A] to-[#D4AF37] bg-clip-text text-transparent">Prizes</span>
+            </h2>
+            <div className="h-1.5 w-24 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mb-6"></div>
+            <p className="text-[#C7D1E0] text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+              Compete for prestigious prizes and recognition in the 4th Season State Level Competition
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 lg:gap-10 mb-12">
+            {/* 1st Prize */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#D4AF37] via-[#F2D27A] to-[#D4AF37] rounded-3xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+              <div className="relative bg-gradient-to-br from-[#0B1A3A] via-[#0F2447] to-[#0B1A3A] rounded-3xl p-8 md:p-10 border-2 border-[#D4AF37]/50 shadow-2xl hover:border-[#D4AF37] transition-all duration-300 hover:scale-105">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#D4AF37] to-[#F2D27A] rounded-full flex items-center justify-center shadow-xl border-4 border-[#0B1A3A]">
+                    <span className="text-3xl">🥇</span>
+                  </div>
+                </div>
+                <div className="text-center pt-6">
+                  <div className="text-sm md:text-base font-semibold text-[#D4AF37] uppercase tracking-wider mb-4">1st Prize</div>
+                  <div className="mb-2">
+                    <span className="text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#F2D27A] to-[#D4AF37] bg-clip-text text-transparent">
+                      1,11,111
+                    </span>
+                    <span className="text-2xl md:text-3xl font-semibold text-[#D4AF37] ml-2">₹</span>
+                  </div>
+                  <div className="mt-6 pt-6 border-t border-[#D4AF37]/20">
+                    <p className="text-xs text-[#C7D1E0] uppercase tracking-wider">Gold Medal</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2nd Prize */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#C0C0C0] via-[#E8E8E8] to-[#C0C0C0] rounded-3xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300"></div>
+              <div className="relative bg-gradient-to-br from-[#0B1A3A] via-[#0F2447] to-[#0B1A3A] rounded-3xl p-8 md:p-10 border-2 border-[#C0C0C0]/40 shadow-2xl hover:border-[#C0C0C0] transition-all duration-300 hover:scale-105">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#C0C0C0] to-[#E8E8E8] rounded-full flex items-center justify-center shadow-xl border-4 border-[#0B1A3A]">
+                    <span className="text-3xl">🥈</span>
+                  </div>
+                </div>
+                <div className="text-center pt-6">
+                  <div className="text-sm md:text-base font-semibold text-[#C0C0C0] uppercase tracking-wider mb-4">2nd Prize</div>
+                  <div className="mb-2">
+                    <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-[#FFFFFF]">
+                      55,555
+                    </span>
+                    <span className="text-2xl md:text-3xl font-semibold text-[#C0C0C0] ml-2">₹</span>
+                  </div>
+                  <div className="mt-6 pt-6 border-t border-[#C0C0C0]/20">
+                    <p className="text-xs text-[#C7D1E0] uppercase tracking-wider">Silver Medal</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3rd Prize */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#CD7F32] via-[#E6A857] to-[#CD7F32] rounded-3xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300"></div>
+              <div className="relative bg-gradient-to-br from-[#0B1A3A] via-[#0F2447] to-[#0B1A3A] rounded-3xl p-8 md:p-10 border-2 border-[#CD7F32]/40 shadow-2xl hover:border-[#CD7F32] transition-all duration-300 hover:scale-105">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#CD7F32] to-[#E6A857] rounded-full flex items-center justify-center shadow-xl border-4 border-[#0B1A3A]">
+                    <span className="text-3xl">🥉</span>
+                  </div>
+                </div>
+                <div className="text-center pt-6">
+                  <div className="text-sm md:text-base font-semibold text-[#CD7F32] uppercase tracking-wider mb-4">3rd Prize</div>
+                  <div className="mb-2">
+                    <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-[#FFFFFF]">
+                      33,333
+                    </span>
+                    <span className="text-2xl md:text-3xl font-semibold text-[#CD7F32] ml-2">₹</span>
+                  </div>
+                  <div className="mt-6 pt-6 border-t border-[#CD7F32]/20">
+                    <p className="text-xs text-[#C7D1E0] uppercase tracking-wider">Bronze Medal</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Prize Pool */}
+          <div className="text-center">
+            <div className="inline-block bg-white/5 backdrop-blur-sm border border-[#D4AF37]/30 rounded-2xl px-8 py-6 shadow-xl">
+              <p className="text-[#C7D1E0] text-sm md:text-base uppercase tracking-wider mb-2">Total Prize Pool</p>
+              <p className="text-3xl md:text-4xl font-bold text-[#D4AF37]">
+                2,00,000 <span className="text-xl text-[#C7D1E0]">₹</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* About Us Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 relative z-10">
         <div className="max-w-6xl mx-auto">

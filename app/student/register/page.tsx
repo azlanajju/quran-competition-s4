@@ -1,41 +1,41 @@
 "use client";
 
-import VideoUpload from "@/components/VideoUpload";
+import FileUpload from "@/components/FileUpload";
 import { Button } from "@/components/ui/button";
+import VideoUpload from "@/components/VideoUpload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Form validation schema
+// Form validation schema - all fields are mandatory
 const registrationSchema = z.object({
-  fullName: z.string().min(2, "Full name must be at least 2 characters"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  dateOfBirth: z.string().refine((date) => {
-    const birthDate = new Date(date);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
-    return actualAge >= 5 && actualAge <= 18; // Age validation as per competition rules
-  }, "Age must be between 5 and 18 years"),
-  category: z.string().min(1, "Please select a category"),
-  address: z.string().min(10, "Address must be at least 10 characters"),
-  city: z.string().min(2, "City is required"),
-  state: z.string().min(2, "State is required"),
-  zipCode: z.string().min(5, "Zip code is required"),
-  parentName: z.string().min(2, "Parent/Guardian name is required"),
-  parentEmail: z.string().email("Invalid parent email address"),
-  parentPhone: z.string().min(10, "Parent phone number is required"),
+  fullName: z.string().min(1, "Full name is required").min(2, "Full name must be at least 2 characters"),
+  phone: z.string().min(1, "Phone number is required").min(10, "Phone number must be at least 10 digits"),
+  dateOfBirth: z
+    .string()
+    .min(1, "Date of birth is required")
+    .refine((date) => {
+      const birthDate = new Date(date);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+      return actualAge >= 5 && actualAge <= 18; // Age validation as per competition rules
+    }, "Age must be between 5 and 18 years"),
+  address: z.string().min(1, "Address is required").min(10, "Address must be at least 10 characters"),
+  city: z.string().min(1, "City is required").min(2, "City must be at least 2 characters"),
+  state: z.string().min(1, "State is required").min(2, "State must be at least 2 characters"),
+  zipCode: z.string().min(1, "Zip code is required").min(5, "Zip code must be at least 5 characters"),
 });
 
 type RegistrationFormData = z.infer<typeof registrationSchema>;
 
 export default function StudentRegistration() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   const {
@@ -54,44 +54,34 @@ export default function StudentRegistration() {
       return;
     }
 
+    if (!idCardFile) {
+      setErrorMessage("Please upload an ID card proof");
+      setSubmitStatus("error");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitStatus("idle");
     setErrorMessage("");
 
     try {
-      // Step 1: Get upload URL from API (video is already compressed by VideoUpload component)
-      const uploadResponse = await fetch("/api/upload", {
+      // Step 1: Upload ID card first (using server-side upload to avoid CORS)
+      const idCardFormData = new FormData();
+      idCardFormData.append("file", idCardFile);
+
+      const idCardUploadResponse = await fetch("/api/upload/file", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: videoFile.name,
-          fileType: videoFile.type || "video/mp4", // Default to mp4 if type is missing
-        }),
+        body: idCardFormData,
       });
 
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get upload URL");
+      if (!idCardUploadResponse.ok) {
+        const errorData = await idCardUploadResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to upload ID card");
       }
 
-      const { uploadUrl, fileKey } = await uploadResponse.json();
+      const { fileKey: idCardFileKey, fileUrl: idCardFileUrl } = await idCardUploadResponse.json();
 
-      // Step 2: Upload compressed video to S3 using presigned URL
-      const uploadResult = await fetch(uploadUrl, {
-        method: "PUT",
-        body: videoFile, // This is already compressed by VideoUpload component
-        headers: {
-          "Content-Type": videoFile.type || "video/mp4",
-        },
-      });
-
-      if (!uploadResult.ok) {
-        throw new Error("Failed to upload video to S3");
-      }
-
-      // Step 3: Submit registration data with video reference
+      // Step 2: Register student with ID card reference
       const registrationResponse = await fetch("/api/student/register", {
         method: "POST",
         headers: {
@@ -99,19 +89,45 @@ export default function StudentRegistration() {
         },
         body: JSON.stringify({
           ...data,
-          videoKey: fileKey,
-          videoUrl: `s3://${fileKey}`, // Store S3 key for reference
+          idCardKey: idCardFileKey,
+          idCardUrl: idCardFileUrl || `s3://${process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME || "bucket"}/${idCardFileKey}`,
         }),
       });
 
       if (!registrationResponse.ok) {
         const errorData = await registrationResponse.json().catch(() => ({}));
+        // Check if it's a duplicate phone number error
+        if (registrationResponse.status === 409) {
+          throw new Error(errorData.error || "This phone number is already registered. Each phone number can only register once.");
+        }
         throw new Error(errorData.error || "Failed to complete registration");
       }
 
+      const { studentId } = await registrationResponse.json();
+
+      // Step 3: Upload video directly
+      setSubmitStatus("uploading");
+      const videoFormData = new FormData();
+      videoFormData.append("video", videoFile);
+      videoFormData.append("studentId", studentId.toString());
+
+      const videoProcessingResponse = await fetch("/api/video/upload-process", {
+        method: "POST",
+        body: videoFormData,
+      });
+
+      if (!videoProcessingResponse.ok) {
+        const errorData = await videoProcessingResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to upload video");
+      }
+
+      const videoData = await videoProcessingResponse.json();
+
+      // Video uploaded successfully
       setSubmitStatus("success");
       reset();
       setVideoFile(null);
+      setIdCardFile(null);
     } catch (error) {
       console.error("Registration error:", error);
       setErrorMessage(error instanceof Error ? error.message : "An error occurred during registration");
@@ -162,9 +178,15 @@ export default function StudentRegistration() {
             </div>
           </div>
 
+          {submitStatus === "uploading" && (
+            <div className="mb-6 p-4 bg-blue-500/20 backdrop-blur-sm border-2 border-blue-400 rounded-lg">
+              <p className="text-blue-100 font-medium text-center">⏳ Uploading video... Please wait.</p>
+            </div>
+          )}
+
           {submitStatus === "success" && (
             <div className="mb-6 p-4 bg-green-500/20 backdrop-blur-sm border-2 border-green-400 rounded-lg">
-              <p className="text-green-100 font-medium text-center">✓ Registration successful! You will receive a confirmation email shortly.</p>
+              <p className="text-green-100 font-medium text-center">✓ Registration successful! Your video has been uploaded.</p>
             </div>
           )}
 
@@ -203,27 +225,6 @@ export default function StudentRegistration() {
                   </label>
                   <input {...register("dateOfBirth")} type="date" id="dateOfBirth" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] [color-scheme:dark]" />
                   {errors.dateOfBirth && <p className="mt-1 text-sm text-red-300">{errors.dateOfBirth.message}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-[#FFFFFF] mb-1">
-                    Competition Category *
-                  </label>
-                  <select {...register("category")} id="category" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]">
-                    <option value="" className="bg-[#0B3C8A] text-[#FFFFFF]">
-                      Select a category
-                    </option>
-                    <option value="junior" className="bg-[#0B3C8A] text-[#FFFFFF]">
-                      Junior (5-10 years)
-                    </option>
-                    <option value="intermediate" className="bg-[#0B3C8A] text-[#FFFFFF]">
-                      Intermediate (11-14 years)
-                    </option>
-                    <option value="senior" className="bg-[#0B3C8A] text-[#FFFFFF]">
-                      Senior (15-18 years)
-                    </option>
-                  </select>
-                  {errors.category && <p className="mt-1 text-sm text-red-300">{errors.category.message}</p>}
                 </div>
               </div>
             </div>
@@ -270,36 +271,19 @@ export default function StudentRegistration() {
               </div>
             </div>
 
-            {/* Parent/Guardian Information */}
+            {/* ID Card Proof Upload */}
             <div className="border-b border-[#9FB3D1] pb-6">
               <h2 className="text-xl md:text-2xl font-semibold text-[#D4AF37] mb-4 flex items-center gap-2">
-                <span className="text-xl">✦</span> Parent/Guardian Information
+                <span className="text-xl">✦</span> ID Card Proof *
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="parentName" className="block text-sm font-medium text-[#FFFFFF] mb-1">
-                    Parent/Guardian Name *
-                  </label>
-                  <input {...register("parentName")} type="text" id="parentName" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] placeholder-[#C7D1E0] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" placeholder="Parent/Guardian name" />
-                  {errors.parentName && <p className="mt-1 text-sm text-red-300">{errors.parentName.message}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="parentEmail" className="block text-sm font-medium text-[#FFFFFF] mb-1">
-                    Parent/Guardian Email *
-                  </label>
-                  <input {...register("parentEmail")} type="email" id="parentEmail" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] placeholder-[#C7D1E0] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" placeholder="parent.email@example.com" />
-                  {errors.parentEmail && <p className="mt-1 text-sm text-red-300">{errors.parentEmail.message}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="parentPhone" className="block text-sm font-medium text-[#FFFFFF] mb-1">
-                    Parent/Guardian Phone *
-                  </label>
-                  <input {...register("parentPhone")} type="tel" id="parentPhone" className="w-full px-3 py-2 bg-white/10 backdrop-blur-sm border border-[#C9A24D] rounded-md text-[#FFFFFF] placeholder-[#C7D1E0] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" placeholder="+91 1234567890" />
-                  {errors.parentPhone && <p className="mt-1 text-sm text-red-300">{errors.parentPhone.message}</p>}
-                </div>
-              </div>
+              <FileUpload
+                onFileSelect={(file) => setIdCardFile(file || null)}
+                maxSize={5 * 1024 * 1024} // 5MB
+                acceptedFormats={["image/jpeg", "image/png", "image/jpg", "application/pdf"]}
+                label="ID Card Proof (Required)"
+                acceptLabel="JPG, PNG, PDF"
+              />
+              {!idCardFile && <p className="mt-2 text-sm text-red-300">ID card proof is required</p>}
             </div>
 
             {/* Video Upload */}
@@ -309,16 +293,15 @@ export default function StudentRegistration() {
               </h2>
               <VideoUpload
                 onVideoSelect={(file) => setVideoFile(file)}
-                onCompressionStateChange={(compressing) => setIsCompressing(compressing)}
                 maxSize={100 * 1024 * 1024} // 100MB
-                acceptedFormats={["video/mp4", "video/webm", "video/quicktime"]}
+                acceptedFormats={["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/avi", "video/x-matroska"]}
               />
             </div>
 
             {/* Submit Button */}
             <div className="pt-6">
-              <Button type="submit" disabled={isSubmitting || isCompressing || !videoFile} className="w-full bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] hover:bg-[#4CAF50]/30 font-semibold shadow-xl shadow-[#4CAF50]/20 py-6 h-auto rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300" size="lg">
-                {isCompressing ? "Compressing video..." : isSubmitting ? "Submitting..." : !videoFile ? "Please upload a video first" : "Submit Registration"}
+              <Button type="submit" disabled={isSubmitting || !videoFile || !idCardFile} className="w-full bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] hover:bg-[#4CAF50]/30 font-semibold shadow-xl shadow-[#4CAF50]/20 py-6 h-auto rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300" size="lg">
+                {isSubmitting ? "Submitting..." : !videoFile ? "Please upload a video first" : !idCardFile ? "Please upload ID card proof" : "Submit Registration"}
               </Button>
             </div>
           </form>

@@ -26,19 +26,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
-    if (!allowedTypes.includes(fileType)) {
+    // Validate file type - allow both videos and ID card files (images/PDFs)
+    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedDocumentTypes = ['application/pdf'];
+    const allowedTypes = [...allowedVideoTypes, ...allowedImageTypes, ...allowedDocumentTypes];
+    
+    // Also check file extension as fallback
+    const allowedExtensions = ['.mp4', '.webm', '.mov', '.avi', '.jpg', '.jpeg', '.png', '.pdf'];
+    const fileExtension = '.' + (fileName.split('.').pop()?.toLowerCase() || '');
+    const isValidExtension = allowedExtensions.includes(fileExtension);
+    const isValidMimeType = allowedTypes.includes(fileType);
+    
+    if (!isValidMimeType && !isValidExtension) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only video files are allowed.' },
+        { 
+          error: 'Invalid file type. Only video files, images (JPG, PNG), or PDF files are allowed.',
+          details: `File type: ${fileType || 'unknown'}, Extension: ${fileExtension || 'none'}`
+        },
         { status: 400 }
       );
     }
 
-    // Generate unique file key
-    // Ensure we use .mp4 extension for compressed videos
-    const fileExtension = fileType.includes('mp4') ? 'mp4' : (fileName.split('.').pop() || 'mp4');
-    const fileKey = `student-videos/${uuidv4()}.${fileExtension}`;
+    // Generate unique file key based on file type
+    let fileExtensionForKey = fileName.split('.').pop()?.toLowerCase() || 'bin';
+    
+    // Determine folder based on file type
+    let folder = 'student-files';
+    if (allowedVideoTypes.includes(fileType) || ['.mp4', '.webm', '.mov', '.avi'].includes(fileExtension)) {
+      folder = 'student-videos';
+      fileExtensionForKey = fileType.includes('mp4') ? 'mp4' : fileExtensionForKey;
+    } else if (allowedImageTypes.includes(fileType) || ['.jpg', '.jpeg', '.png'].includes(fileExtension)) {
+      folder = 'student-id-cards';
+    } else if (allowedDocumentTypes.includes(fileType) || fileExtension === '.pdf') {
+      folder = 'student-id-cards';
+      fileExtensionForKey = 'pdf';
+    }
+    
+    const fileKey = `${folder}/${uuidv4()}.${fileExtensionForKey}`;
 
     // Create S3 PutObject command
     const command = new PutObjectCommand({
