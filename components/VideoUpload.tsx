@@ -4,15 +4,10 @@ import { useRef, useState } from "react";
 
 interface VideoUploadProps {
   onVideoSelect: (file: File) => void;
-  maxSize?: number; // in bytes
   acceptedFormats?: string[];
 }
 
-export default function VideoUpload({
-  onVideoSelect,
-  maxSize = 100 * 1024 * 1024, // Default 100MB
-  acceptedFormats = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/avi", "video/x-matroska"],
-}: VideoUploadProps) {
+export default function VideoUpload({ onVideoSelect, acceptedFormats = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/avi", "video/x-matroska"] }: VideoUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
@@ -54,13 +49,6 @@ export default function VideoUpload({
 
     if (!isValidType) {
       setError(`Invalid file type. Please upload: ${acceptedFormats.map((f) => f.split("/")[1].toUpperCase()).join(", ")}`);
-      setIsCheckingDuration(false);
-      return;
-    }
-
-    // Validate file size
-    if (file.size > maxSize) {
-      setError(`File size exceeds ${(maxSize / (1024 * 1024)).toFixed(0)}MB limit`);
       setIsCheckingDuration(false);
       return;
     }
@@ -126,9 +114,7 @@ export default function VideoUpload({
             <p className="mb-2 text-sm text-[#FFFFFF]">
               <span className="font-semibold text-[#D4AF37]">Click to upload</span> or drag and drop
             </p>
-            <p className="text-xs text-[#C7D1E0]">
-              {acceptedFormats.map((f) => f.split("/")[1].toUpperCase()).join(", ")} (MAX. {(maxSize / (1024 * 1024)).toFixed(0)}MB, 2 minutes)
-            </p>
+            <p className="text-xs text-[#C7D1E0]">{acceptedFormats.map((f) => f.split("/")[1].toUpperCase()).join(", ")} (MAX. 2 minutes)</p>
           </div>
           <input ref={fileInputRef} id="video-upload" type="file" className="hidden" accept={acceptedFormats.join(",")} onChange={handleFileSelect} />
         </label>

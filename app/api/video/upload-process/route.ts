@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
 // Simple direct upload endpoint - no processing
-export const maxDuration = 60; // 60 seconds for upload
+export const maxDuration = 300; // 5 minutes for large file uploads
 
 export async function POST(request: NextRequest) {
   let studentId: string | null = null;
@@ -51,12 +51,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
-    }
-
-    // Validate file size (100MB max)
-    const maxSize = 100 * 1024 * 1024;
-    if (videoFile.size > maxSize) {
-      return NextResponse.json({ error: "File size exceeds 100MB limit" }, { status: 400 });
     }
 
     // Upload video directly to S3 in upload folder
