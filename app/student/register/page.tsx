@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import UploadProgressOverlay from "@/components/UploadProgressOverlay";
 import VideoUpload from "@/components/VideoUpload";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
-import Image from "next/image";
 import * as z from "zod";
 
 // Form validation schema - all fields are mandatory
@@ -56,6 +56,12 @@ export default function StudentRegistration() {
     submissionId: null,
     studentName: "",
   });
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateData, setDuplicateData] = useState<{
+    studentId: number;
+    hasVideo: boolean;
+    message: string;
+  } | null>(null);
 
   const {
     register,
@@ -127,9 +133,9 @@ export default function StudentRegistration() {
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const response = JSON.parse(xhr.responseText);
-            // Set progress to 99% on upload completion, not 100%
-            // 100% will be set only after all processing is complete
-            onProgress(99);
+            // Set progress to 90% on upload completion to server
+            // Progress will gradually increase from 90% to 100% after upload
+            onProgress(90);
             // Create a Response-like object
             const mockResponse = {
               ok: true,
@@ -231,8 +237,27 @@ export default function StudentRegistration() {
       if (!registrationResponse.ok) {
         const errorData = await registrationResponse.json().catch(() => ({}));
         // Check if it's a duplicate phone number error
-        if (registrationResponse.status === 409) {
-          throw new Error(errorData.error || "This phone number is already registered. Each phone number can only register once.");
+        if (registrationResponse.status === 409 && errorData.duplicate) {
+          // Check if video already exists
+          if (errorData.hasVideo) {
+            setIsSubmitting(false);
+            setIsUploading(false);
+            setUploadProgress(0);
+            setCurrentStep("");
+            throw new Error(errorData.message || "A registration with this phone number already exists and has a video submission.");
+          }
+          // Show modal to ask if user wants to upload only video
+          setDuplicateData({
+            studentId: errorData.studentId,
+            hasVideo: errorData.hasVideo,
+            message: errorData.message || "A registration with this phone number already exists. Would you like to upload only the video?",
+          });
+          setShowDuplicateModal(true);
+          setIsSubmitting(false);
+          setIsUploading(false);
+          setUploadProgress(0);
+          setCurrentStep("");
+          return; // Exit early, user will decide via modal
         }
         throw new Error(errorData.error || "Failed to complete registration");
       }
@@ -247,15 +272,14 @@ export default function StudentRegistration() {
       videoFormData.append("video", videoFile);
       videoFormData.append("studentId", studentId.toString());
 
-      // Video upload: 30-99% of total progress (69% range for upload, 1% for final processing)
-      // Wait for video upload to complete before finishing
+      // Video upload: 30-90% during upload, then 90-100% after upload completes
+      // This tracks upload from browser to Next.js server
       const videoProcessingResponse = await uploadFileWithProgress("/api/video/upload-process", videoFormData, (progress) => {
-        // Real progress: 30% + (video progress * 69%)
-        // When upload completes (progress = 99%), we get: 30 + (99 * 0.697) ≈ 99%
-        // This tracks actual bytes uploaded for the video file
-        // Progress will be capped at 99% until all processing is complete
-        const totalProgress = 30 + progress * 0.697;
-        setUploadProgress(Math.min(99, Math.round(totalProgress * 10) / 10)); // Cap at 99%, round to 1 decimal
+        // Real progress: 30% + (video progress * 60%)
+        // When upload to server completes (progress = 100%), we get: 30 + (100 * 0.60) = 90%
+        // This tracks actual bytes uploaded for the video file to the server
+        const totalProgress = 30 + progress * 0.6;
+        setUploadProgress(Math.min(90, Math.round(totalProgress * 10) / 10)); // Cap at 90% during upload, round to 1 decimal
         // Track actual bytes uploaded (ID card already done + video progress)
         const videoBytesUploaded = (progress / 100) * videoFile.size;
         setUploadedBytes(idCardFile.size + videoBytesUploaded);
@@ -266,15 +290,26 @@ export default function StudentRegistration() {
         throw new Error(errorData.error || "Failed to upload video");
       }
 
-      // Keep at 99% while waiting for video response
-      setUploadProgress(99);
-      setCurrentStep("Finalizing your registration...");
-
-      // Wait for video URL response - this takes time
+      // Get the response - upload is complete at this point
       const videoData = await videoProcessingResponse.json();
 
-      // Now set to 100% only after everything is complete
-      setUploadProgress(100);
+      // Upload is complete - gradually progress from 90% to 100% based on file size
+      // Larger files take longer to process, so we simulate progress
+      const fileSizeMB = videoFile.size / (1024 * 1024);
+      const processingTime = Math.max(1000, Math.min(5000, fileSizeMB * 200)); // 200ms per MB, min 1s, max 5s
+      const steps = 20; // 20 steps from 90% to 100%
+      const stepDelay = processingTime / steps;
+
+      setCurrentStep("Processing video on server...");
+
+      // Gradually increase from 90% to 100%
+      for (let i = 1; i <= steps; i++) {
+        await new Promise((resolve) => setTimeout(resolve, stepDelay));
+        const progress = 90 + (i / steps) * 10;
+        setUploadProgress(Math.round(progress * 10) / 10);
+      }
+
+      setCurrentStep("Finalizing...");
 
       // Video uploaded successfully - progress already at 100%
       setUploadedBytes(totalBytes);
@@ -315,6 +350,95 @@ export default function StudentRegistration() {
     }
   };
 
+  // Handle video-only upload for duplicate registrations
+  const handleVideoOnlyUpload = async () => {
+    if (!duplicateData || !videoFile) {
+      toast.error("Video file is required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setIsUploading(true);
+    setShowDuplicateModal(false);
+
+    try {
+      setUploadProgress(0);
+      setCurrentStep("Uploading your video...");
+      setTotalBytes(videoFile.size);
+      setUploadedBytes(0);
+
+      const videoFormData = new FormData();
+      videoFormData.append("video", videoFile);
+      videoFormData.append("studentId", duplicateData.studentId.toString());
+
+      // Video upload: 0-90% during upload, then 90-100% after upload completes
+      const videoProcessingResponse = await uploadFileWithProgress("/api/video/upload-process", videoFormData, (progress) => {
+        setUploadProgress(Math.min(90, Math.round(progress * 10) / 10)); // Cap at 90% during upload
+        const videoBytesUploaded = (progress / 100) * videoFile.size;
+        setUploadedBytes(videoBytesUploaded);
+      });
+
+      if (!videoProcessingResponse.ok) {
+        const errorData = await videoProcessingResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to upload video");
+      }
+
+      // Upload is complete - gradually progress from 90% to 100% based on file size
+      // Larger files take longer to process, so we simulate progress
+      const fileSizeMB = videoFile.size / (1024 * 1024);
+      const processingTime = Math.max(1000, Math.min(5000, fileSizeMB * 200)); // 200ms per MB, min 1s, max 5s
+      const steps = 20; // 20 steps from 90% to 100%
+      const stepDelay = processingTime / steps;
+
+      setCurrentStep("Processing video on server...");
+
+      // Gradually increase from 90% to 100%
+      for (let i = 1; i <= steps; i++) {
+        await new Promise((resolve) => setTimeout(resolve, stepDelay));
+        const progress = 90 + (i / steps) * 10;
+        setUploadProgress(Math.round(progress * 10) / 10);
+      }
+
+      const videoData = await videoProcessingResponse.json();
+
+      setUploadProgress(100);
+      setUploadedBytes(totalBytes);
+
+      // Store success data for popup
+      setSuccessData({
+        studentId: duplicateData.studentId,
+        submissionId: videoData.submissionId || null,
+        studentName: "", // We don't have the name in duplicate case
+      });
+
+      // Reset form
+      reset();
+      setVideoFile(null);
+      setIdCardFile(null);
+      setDuplicateData(null);
+
+      setIsSubmitting(false);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setCurrentStep("");
+      setUploadedBytes(0);
+      setTotalBytes(0);
+
+      // Show success popup
+      setShowSuccessPopup(true);
+    } catch (error) {
+      console.error("Video upload error:", error);
+      toast.error(error instanceof Error ? error.message : "An error occurred during video upload");
+      setIsSubmitting(false);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setCurrentStep("");
+      setUploadedBytes(0);
+      setTotalBytes(0);
+      setDuplicateData(null);
+    }
+  };
+
   return (
     <>
       {/* Upload Progress Overlay */}
@@ -330,6 +454,53 @@ export default function StudentRegistration() {
         studentName={successData.studentName}
       />
 
+      {/* Duplicate Registration Modal */}
+      {showDuplicateModal && duplicateData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="relative w-[90vw] max-w-md bg-gradient-to-br from-[#0A1F3D] to-[#1a3a5f] rounded-xl border-2 border-[#D4AF37]/50 shadow-2xl p-6 sm:p-8">
+            <div className="text-center">
+              <div className="mb-4 text-4xl">⚠️</div>
+              <h3 className="text-xl sm:text-2xl font-bold text-[#D4AF37] mb-4">Registration Already Exists</h3>
+              <p className="text-sm sm:text-base text-[#FFFFFF] mb-6 opacity-90">{duplicateData.message}</p>
+
+              {!duplicateData.hasVideo && videoFile && (
+                <div className="space-y-4">
+                  <p className="text-xs sm:text-sm text-[#C7D1E0] opacity-75">You can upload your video without re-registering.</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button onClick={handleVideoOnlyUpload} className="bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] hover:bg-[#4CAF50]/30 font-semibold px-6 py-3 rounded-xl transition-all duration-300">
+                      Yes, Upload Video Only
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowDuplicateModal(false);
+                        setDuplicateData(null);
+                      }}
+                      variant="outline"
+                      className="border-2 border-[#C9A24D]/50 text-[#FFFFFF] hover:bg-white/10 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {duplicateData.hasVideo && (
+                <Button
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicateData(null);
+                  }}
+                  variant="outline"
+                  className="border-2 border-[#C9A24D]/50 text-[#FFFFFF] hover:bg-white/10 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
+                >
+                  Close
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen islamic-pattern relative overflow-hidden" style={{ background: "linear-gradient(135deg,rgb(16, 31, 56) 0%,rgb(0, 0, 0) 50%,rgb(20, 47, 86) 100%)" }}>
         <Header />
 
@@ -339,28 +510,15 @@ export default function StudentRegistration() {
             <div className="text-center mb-8 sm:mb-10 md:mb-12">
               {/* Trust Logo */}
               <div className="flex justify-center mb-3 sm:mb-4">
-                <Image
-                  src="/images/trust_white.png"
-                  alt="Dr Abdul Shakeel Charitable Trust"
-                  width={120}
-                  height={50}
-                  className="object-contain"
-                  priority
-                />
+                <Image src="/images/trust_white.png" alt="Dr Abdul Shakeel Charitable Trust" width={120} height={50} className="object-contain" priority />
               </div>
               <h1 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-[#FFFFFF] mb-3 sm:mb-4 leading-tight">
                 Student <span className="bg-gradient-to-r from-[#D4AF37] via-[#F2D27A] to-[#D4AF37] bg-clip-text text-transparent">Registration</span>
               </h1>
-              <p className="text-sm sm:text-base md:text-lg lg:text-xl text-[#C7D1E0] mb-4 sm:mb-5 md:mb-6 max-w-2xl mx-auto">
-                Register for Qiraat Competition Season-4
-              </p>
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl text-[#C7D1E0] mb-4 sm:mb-5 md:mb-6 max-w-2xl mx-auto">Register for Qiraat Competition Season-4</p>
               <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
-                <div className="bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[#D4AF37] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">
-                  Age: 10-16 Years
-                </div>
-                <div className="bg-[#4CAF50]/20 border border-[#4CAF50]/50 text-[#4CAF50] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">
-                  Registration: Jan 10-20, 2026
-                </div>
+                <div className="bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[#D4AF37] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">Age: 10-16 Years</div>
+                <div className="bg-[#4CAF50]/20 border border-[#4CAF50]/50 text-[#4CAF50] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">Registration: Jan 10-20, 2026</div>
               </div>
 
               {/* Information Banner */}
@@ -394,39 +552,21 @@ export default function StudentRegistration() {
                       <label htmlFor="fullName" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                         Full Name <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        {...register("fullName")}
-                        type="text"
-                        id="fullName"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                        placeholder="Enter your full name"
-                      />
+                      <input {...register("fullName")} type="text" id="fullName" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Enter your full name" />
                     </div>
 
                     <div>
                       <label htmlFor="phone" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                         Phone Number <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        {...register("phone")}
-                        type="tel"
-                        id="phone"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                        placeholder="+91 1234567890"
-                      />
+                      <input {...register("phone")} type="tel" id="phone" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="+91 1234567890" />
                     </div>
 
                     <div className="md:col-span-2 w-full">
                       <label htmlFor="dateOfBirth" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1 sm:mb-1.5 md:mb-2">
                         Date of Birth <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        {...register("dateOfBirth")}
-                        type="date"
-                        id="dateOfBirth"
-                        className="w-full max-w-[280px] sm:max-w-full box-border px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-md sm:rounded-lg text-xs sm:text-sm md:text-base text-[#FFFFFF] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all [color-scheme:dark]"
-                        style={{ maxWidth: '280px', fontSize: '0.75rem' }}
-                      />
+                      <input {...register("dateOfBirth")} type="date" id="dateOfBirth" className="w-full max-w-[280px] sm:max-w-full box-border px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-md sm:rounded-lg text-xs sm:text-sm md:text-base text-[#FFFFFF] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all [color-scheme:dark]" style={{ maxWidth: "280px", fontSize: "0.75rem" }} />
                       <p className="mt-1 sm:mt-1.5 md:mt-2 text-xs text-[#C7D1E0]/70">Age must be between 10-16 years</p>
                     </div>
                   </div>
@@ -443,13 +583,7 @@ export default function StudentRegistration() {
                       <label htmlFor="address" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                         Street Address <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        {...register("address")}
-                        type="text"
-                        id="address"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                        placeholder="Enter your street address"
-                      />
+                      <input {...register("address")} type="text" id="address" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Enter your street address" />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
@@ -457,39 +591,21 @@ export default function StudentRegistration() {
                         <label htmlFor="city" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                           City <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          {...register("city")}
-                          type="text"
-                          id="city"
-                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                          placeholder="City"
-                        />
+                        <input {...register("city")} type="text" id="city" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="City" />
                       </div>
 
                       <div>
                         <label htmlFor="state" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                           State <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          {...register("state")}
-                          type="text"
-                          id="state"
-                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                          placeholder="State"
-                        />
+                        <input {...register("state")} type="text" id="state" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="State" />
                       </div>
 
                       <div>
                         <label htmlFor="zipCode" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                           Zip Code <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          {...register("zipCode")}
-                          type="text"
-                          id="zipCode"
-                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                          placeholder="Zip Code"
-                        />
+                        <input {...register("zipCode")} type="text" id="zipCode" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Zip Code" />
                       </div>
                     </div>
                   </div>
@@ -499,7 +615,9 @@ export default function StudentRegistration() {
                 <div className="bg-white/5 backdrop-blur-sm rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 border border-[#D4AF37]/20">
                   <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-[#D4AF37] mb-4 sm:mb-5 md:mb-6 flex items-center gap-2 sm:gap-3">
                     <span className="text-lg sm:text-xl md:text-2xl">🆔</span>
-                    <span>ID Card Proof <span className="text-red-400">*</span></span>
+                    <span>
+                      ID Card Proof <span className="text-red-400">*</span>
+                    </span>
                   </h2>
                   <FileUpload
                     onFileSelect={(file) => setIdCardFile(file || null)}
@@ -509,33 +627,34 @@ export default function StudentRegistration() {
                     label="ID Card Proof (Required)"
                     acceptLabel="JPG, PNG, PDF"
                   />
-                  {!idCardFile && <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-[#C7D1E0]/80 flex items-center gap-1.5 sm:gap-2">
-                    <span>ℹ️</span>
-                    <span>Please upload your ID card proof (Max 5MB)</span>
-                  </p>}
+                  {!idCardFile && (
+                    <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-[#C7D1E0]/80 flex items-center gap-1.5 sm:gap-2">
+                      <span>ℹ️</span>
+                      <span>Please upload your ID card proof (Max 5MB)</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Video Upload */}
                 <div className="bg-white/5 backdrop-blur-sm rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 border border-[#D4AF37]/20">
                   <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-[#D4AF37] mb-4 sm:mb-5 md:mb-6 flex items-center gap-2 sm:gap-3">
                     <span className="text-lg sm:text-xl md:text-2xl">🎥</span>
-                    <span>Recitation Video Upload <span className="text-red-400">*</span></span>
+                    <span>
+                      Recitation Video Upload <span className="text-red-400">*</span>
+                    </span>
                   </h2>
                   <VideoUpload onVideoSelect={(file) => setVideoFile(file)} value={videoFile} acceptedFormats={["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/avi", "video/x-matroska"]} />
-                  {!videoFile && <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-[#C7D1E0]/80 flex items-center gap-1.5 sm:gap-2">
-                    <span>ℹ️</span>
-                    <span>Upload a 2-minute recitation video (MP4, WebM, or other supported formats)</span>
-                  </p>}
+                  {!videoFile && (
+                    <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-[#C7D1E0]/80 flex items-center gap-1.5 sm:gap-2">
+                      <span>ℹ️</span>
+                      <span>Upload a 2-minute recitation video (MP4, WebM, or other supported formats)</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Submit Button */}
                 <div className="pt-3 sm:pt-4">
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || isUploading || !videoFile || !idCardFile}
-                    className="w-full bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] hover:bg-[#4CAF50]/30 font-semibold shadow-xl shadow-[#4CAF50]/20 py-2.5 sm:py-3 h-auto rounded-lg sm:rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 text-sm sm:text-base hover:scale-[1.02]"
-                    size="default"
-                  >
+                  <Button type="submit" disabled={isSubmitting || isUploading || !videoFile || !idCardFile} className="w-full bg-[#4CAF50]/20 backdrop-blur-sm border-2 border-[#4CAF50] text-[#FFFFFF] hover:bg-[#4CAF50]/30 font-semibold shadow-xl shadow-[#4CAF50]/20 py-2.5 sm:py-3 h-auto rounded-lg sm:rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 text-sm sm:text-base hover:scale-[1.02]" size="default">
                     {isSubmitting || isUploading ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="animate-spin">⏳</span>

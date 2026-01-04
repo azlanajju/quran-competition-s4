@@ -34,11 +34,13 @@ export async function GET(request: NextRequest) {
 
       const total = countResult[0]?.total || 0;
 
-      // Get students with video submission count
+      // Get students with video submission count and ID card info
       const [students] = (await connection.execute(
         `SELECT s.*, 
          COUNT(vs.id) as video_count,
-         MAX(vs.created_at) as last_video_date
+         MAX(vs.created_at) as last_video_date,
+         s.id_card_key,
+         s.id_card_url
          FROM students s
          LEFT JOIN video_submissions vs ON s.id = vs.student_id
          WHERE ${whereClause}

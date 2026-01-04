@@ -7,7 +7,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X, FileText, Eye } from "lucide-react";
 
 interface Student {
   id: number;
@@ -20,6 +20,8 @@ interface Student {
   created_at: string;
   video_count: number;
   last_video_date: string | null;
+  id_card_key: string | null;
+  id_card_url: string | null;
 }
 
 export default function AdminStudents() {
@@ -31,6 +33,8 @@ export default function AdminStudents() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedIdCard, setSelectedIdCard] = useState<{ studentId: number; signedUrl: string; fileName: string } | null>(null);
+  const [loadingIdCard, setLoadingIdCard] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -99,6 +103,30 @@ export default function AdminStudents() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const viewIdCard = async (studentId: number) => {
+    try {
+      setLoadingIdCard(true);
+      const response = await fetch(`/api/admin/students/${studentId}/id-card`);
+      const data = await response.json();
+
+      if (data.success && data.signedUrl) {
+        const fileName = data.idCardKey.split("/").pop() || "id-card";
+        setSelectedIdCard({
+          studentId,
+          signedUrl: data.signedUrl,
+          fileName,
+        });
+      } else {
+        alert(data.error || "Failed to load ID card");
+      }
+    } catch (err) {
+      console.error("Error loading ID card:", err);
+      alert("Failed to load ID card");
+    } finally {
+      setLoadingIdCard(false);
     }
   };
 
@@ -192,6 +220,9 @@ export default function AdminStudents() {
                       Videos
                     </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      ID Card
+                    </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -216,6 +247,22 @@ export default function AdminStudents() {
                       </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {student.video_count || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {student.id_card_key ? (
+                          <Button
+                            onClick={() => viewIdCard(student.id)}
+                            disabled={loadingIdCard}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                            View ID Card
+                          </Button>
+                        ) : (
+                          <span className="text-sm text-gray-400">No ID card</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -279,6 +326,63 @@ export default function AdminStudents() {
             </div>
           )}
           </Card>
+
+          {/* ID Card Modal */}
+          {selectedIdCard && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+              <div className="relative w-[90vw] max-w-4xl h-[90vh] max-h-[800px] bg-white rounded-xl border-2 border-gray-200 shadow-2xl overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">ID Card - Student ID: {selectedIdCard.studentId}</h3>
+                    <p className="text-sm text-gray-600">{selectedIdCard.fileName}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedIdCard(null)}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* ID Card Content */}
+                <div className="relative bg-gray-100 flex-1 flex items-center justify-center overflow-auto p-4">
+                  {selectedIdCard.signedUrl.endsWith(".pdf") ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <iframe
+                        src={selectedIdCard.signedUrl}
+                        className="w-full h-full min-h-[600px] border-0 rounded-lg"
+                        title="ID Card PDF"
+                      />
+                      <div className="absolute bottom-4 right-4">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <a href={selectedIdCard.signedUrl} target="_blank" rel="noopener noreferrer">
+                            <FileText className="h-4 w-4" />
+                            Open in New Tab
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <img
+                        src={selectedIdCard.signedUrl}
+                        alt="ID Card"
+                        className="max-w-full max-h-full object-contain rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

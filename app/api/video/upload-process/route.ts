@@ -2,6 +2,10 @@ import { getPool } from "@/lib/db";
 import { getSignedUrlForS3, uploadBufferToS3 } from "@/lib/s3-upload";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
+import { uploadBufferToS3WithProgress } from "@/lib/s3-upload-progress";
+import { uploadProgressStore } from "@/lib/upload-progress-store";
 
 // Simple direct upload endpoint - no processing
 export const maxDuration = 300; // 5 minutes for large file uploads
@@ -53,15 +57,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload video directly to S3 in upload folder
-    const bytes = await videoFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload video directly to S3 using streaming (more efficient for large files)
     const fileExtensionForKey = fileName.split(".").pop()?.toLowerCase() || "mp4";
     const videoKey = `students/${studentId}/upload/${uuidv4()}.${fileExtensionForKey}`;
+    const uploadId = uuidv4(); // Unique ID for tracking this upload
 
+    // Get file size for ContentLength header (required for streaming)
+    const fileSize = videoFile.size;
+
+    // Initialize progress tracking BEFORE starting upload
+    uploadProgressStore.set(uploadId, { uploaded: 0, total: fileSize, percentage: 0, status: 'uploading' });
+
+    // Start S3 upload in background (don't await yet - return uploadId first)
+    // But we need to wait for it to complete before returning, so we'll do it synchronously
+    // The progress will be tracked and can be polled during the upload
     try {
-      await uploadBufferToS3(buffer, videoKey, videoFile.type || "video/mp4");
+      // Convert File stream to Node.js Readable stream for S3
+      const fileStream = videoFile.stream();
+      const nodeStream = Readable.fromWeb(fileStream as any);
+
+      // Upload with progress tracking - this will update the store as it progresses
+      const uploadStartTime = Date.now();
+      await uploadBufferToS3WithProgress(
+        nodeStream,
+        videoKey,
+        videoFile.type || "video/mp4",
+        fileSize,
+        (uploaded, total, percentage) => {
+          // Update progress in store - this happens during upload
+          uploadProgressStore.set(uploadId, { uploaded, total, percentage, status: 'uploading' });
+        }
+      );
+      const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
+      console.log(`Video uploaded successfully to S3: ${videoKey} (${(fileSize / (1024 * 1024)).toFixed(2)} MB) in ${uploadDuration}s`);
+      
+      // Mark as completed
+      uploadProgressStore.set(uploadId, { uploaded: fileSize, total: fileSize, percentage: 100, status: 'completed' });
+      
+      // Clean up progress tracking after 5 minutes
+      setTimeout(() => {
+        uploadProgressStore.delete(uploadId);
+      }, 5 * 60 * 1000);
     } catch (uploadError) {
+      uploadProgressStore.set(uploadId, { uploaded: 0, total: fileSize, percentage: 0, status: 'error', error: (uploadError as Error).message });
+      setTimeout(() => {
+        uploadProgressStore.delete(uploadId);
+      }, 5 * 60 * 1000);
       console.error("Error uploading video to S3:", uploadError);
       return NextResponse.json({ error: "Failed to upload video", details: (uploadError as Error).message }, { status: 500 });
     }
