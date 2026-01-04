@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface VideoUploadProps {
-  onVideoSelect: (file: File) => void;
+  onVideoSelect: (file: File | null) => void;
   acceptedFormats?: string[];
+  value?: File | null; // Controlled value
 }
 
-export default function VideoUpload({ onVideoSelect, acceptedFormats = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/avi", "video/x-matroska"] }: VideoUploadProps) {
+export default function VideoUpload({ onVideoSelect, acceptedFormats = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/avi", "video/x-matroska"], value }: VideoUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
@@ -15,6 +16,40 @@ export default function VideoUpload({ onVideoSelect, acceptedFormats = ["video/m
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Reset when value prop changes to null (controlled component)
+  useEffect(() => {
+    if (value === null) {
+      // Clear internal state when parent resets
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setVideoDuration(null);
+      setError("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } else if (value && value !== selectedFile) {
+      // Sync with external value
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setSelectedFile(value);
+      const url = URL.createObjectURL(value);
+      setPreviewUrl(url);
+      // Re-check duration for synced value
+      checkVideoDuration(value)
+        .then((duration) => {
+          setVideoDuration(duration);
+        })
+        .catch(() => {
+          // Ignore errors for synced values
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const checkVideoDuration = (file: File): Promise<number> => {
     return new Promise((resolve, reject) => {
@@ -97,7 +132,7 @@ export default function VideoUpload({ onVideoSelect, acceptedFormats = ["video/m
     setPreviewUrl(null);
     setVideoDuration(null);
     setError("");
-    onVideoSelect(null as any);
+    onVideoSelect(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -105,20 +140,23 @@ export default function VideoUpload({ onVideoSelect, acceptedFormats = ["video/m
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-center w-full">
-        <label htmlFor="video-upload" className="flex flex-col items-center justify-center w-full h-64 border-2 border-[#C9A24D] border-dashed rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors gold-border">
-          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <svg className="w-12 h-12 mb-3 text-[#D4AF37]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p className="mb-2 text-sm text-[#FFFFFF]">
-              <span className="font-semibold text-[#D4AF37]">Click to upload</span> or drag and drop
-            </p>
-            <p className="text-xs text-[#C7D1E0]">{acceptedFormats.map((f) => f.split("/")[1].toUpperCase()).join(", ")} (MAX. 2 minutes)</p>
-          </div>
-          <input ref={fileInputRef} id="video-upload" type="file" className="hidden" accept={acceptedFormats.join(",")} onChange={handleFileSelect} />
-        </label>
-      </div>
+      {/* Only show upload area if no file is selected */}
+      {!selectedFile && (
+        <div className="flex items-center justify-center w-full">
+          <label htmlFor="video-upload" className="flex flex-col items-center justify-center w-full h-64 border-2 border-[#C9A24D] border-dashed rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors gold-border">
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <svg className="w-12 h-12 mb-3 text-[#D4AF37]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="mb-2 text-sm text-[#FFFFFF]">
+                <span className="font-semibold text-[#D4AF37]">Click to upload</span> or drag and drop
+              </p>
+              <p className="text-xs text-[#C7D1E0]">{acceptedFormats.map((f) => f.split("/")[1].toUpperCase()).join(", ")} (MAX. 2 minutes)</p>
+            </div>
+            <input ref={fileInputRef} id="video-upload" type="file" className="hidden" accept={acceptedFormats.join(",")} onChange={handleFileSelect} />
+          </label>
+        </div>
+      )}
 
       {isCheckingDuration && (
         <div className="p-3 bg-blue-500/20 backdrop-blur-sm border-2 border-blue-400 rounded-lg">

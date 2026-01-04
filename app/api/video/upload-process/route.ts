@@ -59,20 +59,20 @@ export async function POST(request: NextRequest) {
     const fileExtensionForKey = fileName.split(".").pop()?.toLowerCase() || "mp4";
     const videoKey = `students/${studentId}/upload/${uuidv4()}.${fileExtensionForKey}`;
 
-    let videoUrl: string;
     try {
       await uploadBufferToS3(buffer, videoKey, videoFile.type || "video/mp4");
-      // Generate signed URL for the video
-      videoUrl = await getSignedUrlForS3(videoKey, 3600 * 24 * 7); // 7 days
     } catch (uploadError) {
       console.error("Error uploading video to S3:", uploadError);
       return NextResponse.json({ error: "Failed to upload video", details: (uploadError as Error).message }, { status: 500 });
     }
 
-    // Create database record with video info
+    // Create database record with video info (without waiting for signed URL)
     const pool = getPool();
     const connection = await pool.getConnection();
     let submissionId: number | null = null;
+
+    // Use S3 URL format for now, signed URL will be generated on-demand
+    const s3Url = `s3://${process.env.AWS_S3_BUCKET_NAME}/${videoKey}`;
 
     try {
       const [result] = await connection.execute(
@@ -83,24 +83,30 @@ export async function POST(request: NextRequest) {
           processing_status,
           video_resolution
         ) VALUES (?, ?, ?, 'completed', 'original')`,
-        [parseInt(studentId), videoKey, videoUrl]
+        [parseInt(studentId), videoKey, s3Url]
       );
       const insertResult = result as any;
       submissionId = insertResult.insertId;
     } catch (dbError) {
       console.error("Error creating submission record:", dbError);
+      connection.release();
       return NextResponse.json({ error: "Failed to save video record", details: (dbError as Error).message }, { status: 500 });
     } finally {
       connection.release();
     }
 
-    // Return success immediately
+    // Generate signed URL asynchronously (don't wait for it)
+    getSignedUrlForS3(videoKey, 3600 * 24 * 7).catch((err) => {
+      console.error("Error generating signed URL (non-blocking):", err);
+    });
+
+    // Return success immediately after upload and database insert
     return NextResponse.json({
       success: true,
       message: "Video uploaded successfully",
       submissionId: submissionId,
       videoKey: videoKey,
-      videoUrl: videoUrl,
+      videoUrl: s3Url, // Return S3 URL format, signed URL can be generated on-demand
       status: "completed",
     });
   } catch (error: any) {

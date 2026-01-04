@@ -27,6 +27,12 @@ export async function POST(request: NextRequest) {
       const [videoTables] = await connection.execute(
         "SHOW TABLES LIKE 'video_submissions'"
       ) as any[];
+      const [judgeTables] = await connection.execute(
+        "SHOW TABLES LIKE 'judges'"
+      ) as any[];
+      const [judgeScoreTables] = await connection.execute(
+        "SHOW TABLES LIKE 'judge_scores'"
+      ) as any[];
       
       return NextResponse.json({
         success: true,
@@ -34,6 +40,8 @@ export async function POST(request: NextRequest) {
         tablesCreated: {
           students: tables.length > 0,
           video_submissions: videoTables.length > 0,
+          judges: judgeTables.length > 0,
+          judge_scores: judgeScoreTables.length > 0,
         },
       });
     } finally {

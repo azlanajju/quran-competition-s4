@@ -23,13 +23,14 @@ export default function UploadProgressOverlay({ progress, currentStep, isVisible
 
       {/* Main content */}
       <div className="relative z-10 text-center px-6 max-w-md w-full">
-        {/* Islamic geometric pattern decoration */}
+        {/* Hourglass loading animation */}
         <div className="mb-8 flex justify-center">
           <div className="relative">
-            <div className="w-24 h-24 border-4 border-[#D4AF37] rounded-full animate-spin" style={{ animationDuration: "3s" }}>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 border-4 border-[#4CAF50] rounded-full"></div>
-            </div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-3xl">✦</div>
+            <img 
+              src="/images/hourglass.gif" 
+              alt="Loading..." 
+              className="w-12 h-12 object-contain"
+            />
           </div>
         </div>
 

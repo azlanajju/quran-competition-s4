@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface FileUploadProps {
   onFileSelect: (file: File | null) => void;
@@ -8,6 +8,7 @@ interface FileUploadProps {
   acceptedFormats?: string[];
   label?: string;
   acceptLabel?: string;
+  value?: File | null; // Controlled value
 }
 
 export default function FileUpload({ 
@@ -15,12 +16,42 @@ export default function FileUpload({
   maxSize = 5 * 1024 * 1024, // Default 5MB
   acceptedFormats = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'],
   label = "ID Card Proof",
-  acceptLabel
+  acceptLabel,
+  value
 }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset when value prop changes to null (controlled component)
+  useEffect(() => {
+    if (value === null) {
+      // Clear internal state when parent resets
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setError('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } else if (value && value !== selectedFile) {
+      // Sync with external value
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setSelectedFile(value);
+      if (value.type.startsWith('image/')) {
+        const url = URL.createObjectURL(value);
+        setPreviewUrl(url);
+      } else {
+        setPreviewUrl(null);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -77,11 +108,13 @@ export default function FileUpload({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-center w-full">
-        <label
-          htmlFor="file-upload"
-          className="flex flex-col items-center justify-center w-full h-48 border-2 border-[#C9A24D] border-dashed rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors gold-border"
-        >
+      {/* Only show upload area if no file is selected */}
+      {!selectedFile && (
+        <div className="flex items-center justify-center w-full">
+          <label
+            htmlFor="file-upload"
+            className="flex flex-col items-center justify-center w-full h-48 border-2 border-[#C9A24D] border-dashed rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors gold-border"
+          >
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
             <svg
               className="w-10 h-10 mb-3 text-[#D4AF37]"
@@ -112,7 +145,8 @@ export default function FileUpload({
             onChange={handleFileSelect}
           />
         </label>
-      </div>
+        </div>
+      )}
 
       {previewUrl && selectedFile && (
         <div className="space-y-2">

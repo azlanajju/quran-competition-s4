@@ -56,6 +56,19 @@ export default function VideoPlayer({ signedUrl, submissionId, onClose, studentN
 
     video.addEventListener("canplay", () => {
       setLoading(false);
+      // Auto-play when video can play
+      video.play().catch((err) => {
+        console.error("Autoplay prevented:", err);
+        // Autoplay might be blocked by browser, that's okay
+      });
+    });
+
+    video.addEventListener("play", () => {
+      setIsPlaying(true);
+    });
+
+    video.addEventListener("pause", () => {
+      setIsPlaying(false);
     });
 
     video.addEventListener("error", (e) => {
@@ -83,52 +96,70 @@ export default function VideoPlayer({ signedUrl, submissionId, onClose, studentN
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
-      <div className="relative w-full max-w-6xl mx-4 bg-[#0B1A3A] rounded-xl border-2 border-[#D4AF37] shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-white/5 border-b border-[#D4AF37]/30">
-          <div>
-            <h3 className="text-lg font-semibold text-white">{studentName ? `Video - ${studentName}` : "Video Player"}</h3>
-          </div>
-          {onClose && (
-            <button onClick={onClose} className="text-white hover:text-red-400 transition-colors p-2" aria-label="Close">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  // If onClose is provided, render as modal. Otherwise, render inline.
+  if (onClose) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="relative w-[800px] h-[600px] bg-white rounded-xl border-2 border-gray-200 shadow-2xl overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">{studentName ? `Video - ${studentName}` : "Video Player"}</h3>
+            </div>
+            <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-gray-100" aria-label="Close">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-          )}
-        </div>
-
-        {/* Video Container */}
-        <div className="relative bg-black aspect-video">
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-white text-lg">Loading video...</div>
-            </div>
-          )}
-
-          {error && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-red-400 text-lg">{error}</div>
-            </div>
-          )}
-
-          <video ref={videoRef} controls className="w-full h-full" onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}>
-            Your browser does not support the video tag.
-          </video>
-        </div>
-
-        {/* Controls */}
-        <div className="p-4 bg-white/5 border-t border-[#D4AF37]/30">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-[#C7D1E0]">{!loading && !error && <span>{isPlaying ? "Playing" : "Paused"}</span>}</div>
-            <button onClick={handlePlayPause} disabled={loading || !!error} className="px-4 py-2 bg-[#D4AF37]/20 border border-[#D4AF37] text-white rounded hover:bg-[#D4AF37]/30 disabled:opacity-50 disabled:cursor-not-allowed">
-              {isPlaying ? "Pause" : "Play"}
-            </button>
           </div>
+
+          {/* Video Container - Fixed height */}
+          <div className="relative bg-black flex-1 flex items-center justify-center" style={{ height: "500px" }}>
+            {error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                <div className="text-red-400 text-sm">{error}</div>
+              </div>
+            )}
+
+            <video ref={videoRef} controls autoPlay className="w-full h-full object-contain" onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}>
+              Your browser does not support the video tag.
+            </video>
+          </div>
+
+          {/* Controls */}
+          {!error && (
+            <div className="p-3 bg-gray-50 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-600">{isPlaying ? "Playing" : "Paused"}</div>
+                <button onClick={handlePlayPause} disabled={!!error} className="px-4 py-1.5 bg-[#072F6B] hover:bg-[#0B1A3A] text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                  {isPlaying ? "Pause" : "Play"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    );
+  }
+
+  // Inline video player (for dedicated page)
+  return (
+    <div className="relative w-full h-full">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+          <div className="text-white text-lg">Loading video...</div>
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+          <div className="text-red-400 text-lg">{error}</div>
+        </div>
+      )}
+
+      <video ref={videoRef} controls className="w-full h-full rounded-lg" onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}>
+        Your browser does not support the video tag.
+      </video>
     </div>
   );
 }

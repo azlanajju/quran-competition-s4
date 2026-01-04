@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +27,42 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} antialiased`}>{children}</body>
+      <body className={`${inter.variable} ${playfair.variable} antialiased`}>
+        {children}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 10000,
+            style: {
+              background: "#0A1F3D",
+              color: "#FFFFFF",
+              border: "2px solid #D4AF37",
+              borderRadius: "12px",
+              padding: "16px",
+            },
+            success: {
+              iconTheme: {
+                primary: "#4CAF50",
+                secondary: "#FFFFFF",
+              },
+            },
+            error: {
+              duration: 10000,
+              style: {
+                background: "#7F1D1D",
+                color: "#FFFFFF",
+                border: "2px solid #EF4444",
+                borderRadius: "12px",
+                padding: "16px",
+              },
+              iconTheme: {
+                primary: "#EF4444",
+                secondary: "#FFFFFF",
+              },
+            },
+          }}
+        />
+      </body>
     </html>
   );
 }

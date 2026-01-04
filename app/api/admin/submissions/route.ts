@@ -45,9 +45,53 @@ export async function GET(request: NextRequest) {
         [...params, limit, offset]
       )) as any[];
 
+      // Ensure original_video_key and hls_master_playlist_key are included
+      const submissionsWithKeys = submissions.map((sub: any) => ({
+        ...sub,
+        original_video_key: sub.original_video_key || null,
+        hls_master_playlist_key: sub.hls_master_playlist_key || null,
+        hls_master_playlist_url: sub.hls_master_playlist_url || null,
+      }));
+
+      // Get scores for each submission
+      const submissionsWithScores = await Promise.all(
+        submissionsWithKeys.map(async (submission: any) => {
+          const [scores] = (await connection.execute(
+            `SELECT js.*, j.full_name as judge_full_name, j.username as judge_username
+             FROM judge_scores js
+             LEFT JOIN judges j ON js.judge_id = j.id
+             WHERE js.submission_id = ?
+             ORDER BY js.score_type, js.created_at DESC`,
+            [submission.id]
+          )) as any[];
+
+          // Organize scores by type
+          const scoreA = scores.find((s: any) => s.score_type === "A");
+          const scoreB = scores.find((s: any) => s.score_type === "B");
+          
+          // Calculate average if both scores exist
+          let averageScore = null;
+          if (scoreA && scoreB) {
+            const avg = (scoreA.score + scoreB.score) / 2;
+            // Remove unnecessary decimal places
+            averageScore = avg % 1 === 0 ? avg.toString() : avg.toFixed(1);
+          }
+
+          return {
+            ...submission,
+            scores: {
+              scoreA: scoreA || null,
+              scoreB: scoreB || null,
+              average: averageScore,
+              totalScores: scores.length,
+            },
+          };
+        })
+      );
+
       return NextResponse.json({
         success: true,
-        submissions: submissions,
+        submissions: submissionsWithScores,
         pagination: {
           page,
           limit,
