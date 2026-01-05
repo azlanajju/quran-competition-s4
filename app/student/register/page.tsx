@@ -110,7 +110,48 @@ export default function StudentRegistration() {
     }
   }, [isSubmitting]);
 
-  // Upload file with REAL progress tracking using XMLHttpRequest
+  // Upload file directly to S3 with presigned URL and REAL progress tracking
+  const uploadToS3WithProgress = (file: File, presignedUrl: string, onProgress: (progress: number) => void): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // Track REAL upload progress (bytes uploaded / total bytes)
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable && e.total > 0) {
+          // Calculate real progress: bytes uploaded / total bytes * 100
+          const progress = Math.min(100, Math.max(0, (e.loaded / e.total) * 100));
+          onProgress(progress);
+        } else if (e.loaded > 0) {
+          // If total is unknown but we have loaded bytes, show indeterminate progress
+          onProgress(50); // Show 50% as placeholder
+        }
+      });
+
+      // Handle completion
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`S3 upload failed with status ${xhr.status}`));
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        reject(new Error("Network error during S3 upload"));
+      });
+
+      xhr.addEventListener("abort", () => {
+        reject(new Error("S3 upload was aborted"));
+      });
+
+      // Upload directly to S3 using presigned URL
+      xhr.open("PUT", presignedUrl);
+      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+      xhr.send(file);
+    });
+  };
+
+  // Upload file with REAL progress tracking using XMLHttpRequest (for ID card)
   const uploadFileWithProgress = (url: string, formData: FormData, onProgress: (progress: number) => void): Promise<any> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -265,58 +306,65 @@ export default function StudentRegistration() {
       setUploadProgress(30);
       const { studentId } = await registrationResponse.json();
 
-      // Step 3: Upload video - ONLY AFTER ID CARD IS COMPLETE
+      // Step 3: Upload video directly to S3 - ONLY AFTER ID CARD IS COMPLETE
       // This ensures only one file uploads at a time
       setCurrentStep("Uploading your video...");
-      const videoFormData = new FormData();
-      videoFormData.append("video", videoFile);
-      videoFormData.append("studentId", studentId.toString());
 
-      // Video upload: 30-90% during upload, then 90-100% after upload completes
-      // This tracks upload from browser to Next.js server
-      const videoProcessingResponse = await uploadFileWithProgress("/api/video/upload-process", videoFormData, (progress) => {
-        // Real progress: 30% + (video progress * 60%)
-        // When upload to server completes (progress = 100%), we get: 30 + (100 * 0.60) = 90%
-        // This tracks actual bytes uploaded for the video file to the server
-        const totalProgress = 30 + progress * 0.6;
-        setUploadProgress(Math.min(90, Math.round(totalProgress * 10) / 10)); // Cap at 90% during upload, round to 1 decimal
+      // Step 3a: Get presigned URL from server
+      const presignedUrlResponse = await fetch("/api/video/presigned-upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: studentId.toString(),
+          fileName: videoFile.name,
+          fileType: videoFile.type,
+          fileSize: videoFile.size,
+        }),
+      });
+
+      if (!presignedUrlResponse.ok) {
+        const errorData = await presignedUrlResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get upload URL");
+      }
+
+      const { presignedUrl, videoKey } = await presignedUrlResponse.json();
+
+      // Step 3b: Upload directly to S3 with real progress tracking
+      // Video upload: 30-100% (direct to S3, no server in between)
+      await uploadToS3WithProgress(videoFile, presignedUrl, (progress) => {
+        // Real progress: 30% + (video progress * 70%)
+        // When upload to S3 completes (progress = 100%), we get: 30 + (100 * 0.70) = 100%
+        const totalProgress = 30 + progress * 0.7;
+        setUploadProgress(Math.round(totalProgress * 10) / 10);
         // Track actual bytes uploaded (ID card already done + video progress)
         const videoBytesUploaded = (progress / 100) * videoFile.size;
         setUploadedBytes(idCardFile.size + videoBytesUploaded);
       });
 
-      if (!videoProcessingResponse.ok) {
-        const errorData = await videoProcessingResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to upload video");
-      }
-
-      // Get the response - upload is complete at this point
-      const videoData = await videoProcessingResponse.json();
-
-      // Upload is complete - gradually progress from 90% to 100% based on file size
-      // Larger files take longer to process, so we simulate progress
-      const fileSizeMB = videoFile.size / (1024 * 1024);
-      const processingTime = Math.max(1000, Math.min(5000, fileSizeMB * 200)); // 200ms per MB, min 1s, max 5s
-      const steps = 20; // 20 steps from 90% to 100%
-      const stepDelay = processingTime / steps;
-
-      setCurrentStep("Processing video on server...");
-
-      // Gradually increase from 90% to 100%
-      for (let i = 1; i <= steps; i++) {
-        await new Promise((resolve) => setTimeout(resolve, stepDelay));
-        const progress = 90 + (i / steps) * 10;
-        setUploadProgress(Math.round(progress * 10) / 10);
-      }
-
+      // Step 3c: Notify server that upload is complete
       setCurrentStep("Finalizing...");
+      const uploadCompleteResponse = await fetch("/api/video/upload-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: studentId.toString(),
+          videoKey: videoKey,
+        }),
+      });
+
+      if (!uploadCompleteResponse.ok) {
+        const errorData = await uploadCompleteResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to complete upload");
+      }
+
+      const videoData = await uploadCompleteResponse.json();
 
       // Video uploaded successfully - progress already at 100%
       setUploadedBytes(totalBytes);
 
       // Store success data for popup
       setSuccessData({
-        studentId: studentId,
+        studentId: parseInt(studentId),
         submissionId: videoData.submissionId || null,
         studentName: data.fullName,
       });
@@ -371,35 +419,50 @@ export default function StudentRegistration() {
       videoFormData.append("video", videoFile);
       videoFormData.append("studentId", duplicateData.studentId.toString());
 
-      // Video upload: 0-90% during upload, then 90-100% after upload completes
-      const videoProcessingResponse = await uploadFileWithProgress("/api/video/upload-process", videoFormData, (progress) => {
-        setUploadProgress(Math.min(90, Math.round(progress * 10) / 10)); // Cap at 90% during upload
+      // Step 1: Get presigned URL from server
+      const presignedUrlResponse = await fetch("/api/video/presigned-upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: duplicateData.studentId.toString(),
+          fileName: videoFile.name,
+          fileType: videoFile.type,
+          fileSize: videoFile.size,
+        }),
+      });
+
+      if (!presignedUrlResponse.ok) {
+        const errorData = await presignedUrlResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get upload URL");
+      }
+
+      const { presignedUrl, videoKey } = await presignedUrlResponse.json();
+
+      // Step 2: Upload directly to S3 with real progress tracking
+      // Video upload: 0-100% (direct to S3, no server in between)
+      await uploadToS3WithProgress(videoFile, presignedUrl, (progress) => {
+        setUploadProgress(Math.round(progress * 10) / 10); // Real progress 0-100%
         const videoBytesUploaded = (progress / 100) * videoFile.size;
         setUploadedBytes(videoBytesUploaded);
       });
 
-      if (!videoProcessingResponse.ok) {
-        const errorData = await videoProcessingResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to upload video");
+      // Step 3: Notify server that upload is complete
+      setCurrentStep("Finalizing...");
+      const uploadCompleteResponse = await fetch("/api/video/upload-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: duplicateData.studentId.toString(),
+          videoKey: videoKey,
+        }),
+      });
+
+      if (!uploadCompleteResponse.ok) {
+        const errorData = await uploadCompleteResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to complete upload");
       }
 
-      // Upload is complete - gradually progress from 90% to 100% based on file size
-      // Larger files take longer to process, so we simulate progress
-      const fileSizeMB = videoFile.size / (1024 * 1024);
-      const processingTime = Math.max(1000, Math.min(5000, fileSizeMB * 200)); // 200ms per MB, min 1s, max 5s
-      const steps = 20; // 20 steps from 90% to 100%
-      const stepDelay = processingTime / steps;
-
-      setCurrentStep("Processing video on server...");
-
-      // Gradually increase from 90% to 100%
-      for (let i = 1; i <= steps; i++) {
-        await new Promise((resolve) => setTimeout(resolve, stepDelay));
-        const progress = 90 + (i / steps) * 10;
-        setUploadProgress(Math.round(progress * 10) / 10);
-      }
-
-      const videoData = await videoProcessingResponse.json();
+      const videoData = await uploadCompleteResponse.json();
 
       setUploadProgress(100);
       setUploadedBytes(totalBytes);
