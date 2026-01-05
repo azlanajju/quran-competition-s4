@@ -29,10 +29,10 @@ const registrationSchema = z.object({
       const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
       return actualAge >= 5 && actualAge <= 18; // Age validation as per competition rules
     }, "Age must be between 5 and 18 years"),
-  address: z.string().min(1, "Address is required").min(10, "Address must be at least 10 characters"),
-  city: z.string().min(1, "City is required").min(2, "City must be at least 2 characters"),
-  state: z.string().min(1, "State is required").min(2, "State must be at least 2 characters"),
-  zipCode: z.string().min(1, "Zip code is required").min(5, "Zip code must be at least 5 characters"),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
 });
 
 type RegistrationFormData = z.infer<typeof registrationSchema>;
@@ -644,7 +644,7 @@ export default function StudentRegistration() {
                   <div className="space-y-4 sm:space-y-5 md:space-y-6">
                     <div>
                       <label htmlFor="address" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                        Street Address <span className="text-red-400">*</span>
+                        Street Address
                       </label>
                       <input {...register("address")} type="text" id="address" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Enter your street address" />
                     </div>
@@ -652,21 +652,21 @@ export default function StudentRegistration() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                       <div>
                         <label htmlFor="city" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                          City <span className="text-red-400">*</span>
+                          City
                         </label>
                         <input {...register("city")} type="text" id="city" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="City" />
                       </div>
 
                       <div>
                         <label htmlFor="state" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                          State <span className="text-red-400">*</span>
+                          State
                         </label>
                         <input {...register("state")} type="text" id="state" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="State" />
                       </div>
 
                       <div>
                         <label htmlFor="zipCode" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                          Zip Code <span className="text-red-400">*</span>
+                          Zip Code
                         </label>
                         <input {...register("zipCode")} type="text" id="zipCode" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Zip Code" />
                       </div>

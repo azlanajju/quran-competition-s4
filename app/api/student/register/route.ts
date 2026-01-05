@@ -5,8 +5,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    const requiredFields = ["fullName", "phone", "dateOfBirth", "address", "city", "state", "zipCode", "idCardKey"];
+    // Validate required fields (address fields are optional)
+    const requiredFields = ["fullName", "phone", "dateOfBirth", "idCardKey"];
 
     const missingFields = requiredFields.filter((field) => !body[field]);
 
@@ -44,13 +44,23 @@ export async function POST(request: NextRequest) {
         }, { status: 409 });
       }
 
-      // Insert student registration
+      // Insert student registration (address fields are optional)
       const [result] = await connection.execute(
         `INSERT INTO students (
           full_name, phone, date_of_birth, address, city, state, zip_code, 
           id_card_key, id_card_url, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted')`,
-        [body.fullName, body.phone, body.dateOfBirth, body.address, body.city, body.state, body.zipCode, body.idCardKey, body.idCardUrl || `s3://${process.env.AWS_S3_BUCKET_NAME}/${body.idCardKey}`]
+        [
+          body.fullName, 
+          body.phone, 
+          body.dateOfBirth, 
+          body.address || null, 
+          body.city || null, 
+          body.state || null, 
+          body.zipCode || null, 
+          body.idCardKey, 
+          body.idCardUrl || `s3://${process.env.AWS_S3_BUCKET_NAME}/${body.idCardKey}`
+        ]
       );
 
       const insertResult = result as any;
