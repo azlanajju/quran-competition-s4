@@ -301,9 +301,9 @@ export default function AdminJudges() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <Card className="w-full max-w-md mx-4 border-2 shadow-2xl">
-            <CardContent className="pt-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md mx-4 border-2 shadow-2xl bg-white">
+            <CardContent className="pt-6 bg-white">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">{editingJudge ? "Edit Judge" : "Create Judge"}</h2>
                 <Button

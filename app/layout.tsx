@@ -18,6 +18,15 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Qira'at - Qur'an Recitation Competition Portal",
   description: "Participate in the prestigious Qira'at Qur'an recitation competition. Register and showcase your recitation skills.",
+  icons: {
+    icon: [
+      { url: "/images/logo.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [
+      { url: "/images/logo.png", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

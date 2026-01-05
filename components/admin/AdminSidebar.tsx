@@ -9,6 +9,7 @@ import {
   Video, 
   UserCog, 
   FileText,
+  Trophy,
   ChevronRight,
   Menu,
   X
@@ -38,6 +39,12 @@ const menuItems = [
     href: "/admin/judges",
     icon: UserCog,
     description: "Manage judge accounts",
+  },
+  {
+    title: "Leaderboard",
+    href: "/admin/leaderboard",
+    icon: Trophy,
+    description: "View top performers",
   },
 ];
 

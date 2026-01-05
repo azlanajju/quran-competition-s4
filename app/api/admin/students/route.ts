@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
 
     const offset = (page - 1) * limit;
 
@@ -19,26 +21,37 @@ export async function GET(request: NextRequest) {
       const params: any[] = [];
 
       if (status) {
-        whereClause += " AND status = ?";
+        whereClause += " AND s.status = ?";
         params.push(status);
       }
 
       if (search) {
-        whereClause += " AND (full_name LIKE ? OR phone LIKE ? OR city LIKE ?)";
+        whereClause += " AND (s.full_name LIKE ? OR s.phone LIKE ? OR s.city LIKE ?)";
         const searchTerm = `%${search}%`;
         params.push(searchTerm, searchTerm, searchTerm);
       }
 
+      if (dateFrom) {
+        whereClause += " AND DATE(s.created_at) >= ?";
+        params.push(dateFrom);
+      }
+
+      if (dateTo) {
+        whereClause += " AND DATE(s.created_at) <= ?";
+        params.push(dateTo);
+      }
+
       // Get total count
-      const [countResult] = (await connection.execute(`SELECT COUNT(*) as total FROM students WHERE ${whereClause}`, params)) as any[];
+      const [countResult] = (await connection.execute(`SELECT COUNT(DISTINCT s.id) as total FROM students s WHERE ${whereClause}`, params)) as any[];
 
       const total = countResult[0]?.total || 0;
 
-      // Get students with video submission count and ID card info
+      // Get students with video submission info (including latest submission ID)
       const [students] = (await connection.execute(
         `SELECT s.*, 
          COUNT(vs.id) as video_count,
          MAX(vs.created_at) as last_video_date,
+         MAX(vs.id) as latest_submission_id,
          s.id_card_key,
          s.id_card_url
          FROM students s

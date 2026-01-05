@@ -134,7 +134,9 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
         
         if (myScoreA) {
           setExistingScoreA(myScoreA);
-          setScoreA(myScoreA.score.toString());
+          // Ensure score is converted to string properly
+          const scoreValue = typeof myScoreA.score === 'number' ? myScoreA.score : parseFloat(myScoreA.score);
+          setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
           setDescriptionA(myScoreA.description || "");
           setEditingA(false); // Don't show edit mode by default
         } else {
@@ -146,7 +148,9 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
         
         if (myScoreB) {
           setExistingScoreB(myScoreB);
-          setScoreB(myScoreB.score.toString());
+          // Ensure score is converted to string properly
+          const scoreValue = typeof myScoreB.score === 'number' ? myScoreB.score : parseFloat(myScoreB.score);
+          setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
           setDescriptionB(myScoreB.description || "");
           setEditingB(false); // Don't show edit mode by default
         } else {
@@ -199,7 +203,8 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
       const data = await response.json();
 
       if (data.success) {
-        setMessageA({ type: "success", text: "Score A submitted successfully!" });
+        setMessageA({ type: "success", text: existingScoreA ? "Score A updated successfully!" : "Score A submitted successfully!" });
+        setEditingA(false); // Exit edit mode after successful update
         // Refresh score data
         if (judge.id) {
           fetchExistingScores(submission.id, judge.id);
@@ -388,8 +393,10 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
                         <Button
                           onClick={() => {
                             setEditingA(true);
-                            setScoreA(existingScoreA.score.toString());
+                            const scoreValue = typeof existingScoreA.score === 'number' ? existingScoreA.score : parseFloat(existingScoreA.score);
+                            setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
                             setDescriptionA(existingScoreA.description || "");
+                            setMessageA(null); // Clear any previous messages
                           }}
                           variant="outline"
                           size="sm"
@@ -451,8 +458,11 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
                         <Button 
                           onClick={() => {
                             setEditingA(false);
-                            setScoreA(existingScoreA.score.toString());
-                            setDescriptionA(existingScoreA.description || "");
+                            if (existingScoreA) {
+                              const scoreValue = typeof existingScoreA.score === 'number' ? existingScoreA.score : parseFloat(existingScoreA.score);
+                              setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
+                              setDescriptionA(existingScoreA.description || "");
+                            }
                             setMessageA(null);
                           }}
                           variant="outline"
@@ -520,8 +530,10 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
                         <Button
                           onClick={() => {
                             setEditingB(true);
-                            setScoreB(existingScoreB.score.toString());
+                            const scoreValue = typeof existingScoreB.score === 'number' ? existingScoreB.score : parseFloat(existingScoreB.score);
+                            setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
                             setDescriptionB(existingScoreB.description || "");
+                            setMessageB(null); // Clear any previous messages
                           }}
                           variant="outline"
                           size="sm"
@@ -583,8 +595,11 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
                         <Button 
                           onClick={() => {
                             setEditingB(false);
-                            setScoreB(existingScoreB.score.toString());
-                            setDescriptionB(existingScoreB.description || "");
+                            if (existingScoreB) {
+                              const scoreValue = typeof existingScoreB.score === 'number' ? existingScoreB.score : parseFloat(existingScoreB.score);
+                              setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
+                              setDescriptionB(existingScoreB.description || "");
+                            }
                             setMessageB(null);
                           }}
                           variant="outline"

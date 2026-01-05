@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status");
     const studentId = searchParams.get("studentId");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
 
     const offset = (page - 1) * limit;
 
@@ -26,6 +28,16 @@ export async function GET(request: NextRequest) {
       if (studentId) {
         whereClause += " AND vs.student_id = ?";
         params.push(parseInt(studentId));
+      }
+
+      if (dateFrom) {
+        whereClause += " AND DATE(vs.created_at) >= ?";
+        params.push(dateFrom);
+      }
+
+      if (dateTo) {
+        whereClause += " AND DATE(vs.created_at) <= ?";
+        params.push(dateTo);
       }
 
       // Get total count
@@ -53,7 +65,7 @@ export async function GET(request: NextRequest) {
         hls_master_playlist_url: sub.hls_master_playlist_url || null,
       }));
 
-      // Get scores for each submission
+      // Get scores for each submission (get ALL scores, not just one of each type)
       const submissionsWithScores = await Promise.all(
         submissionsWithKeys.map(async (submission: any) => {
           const [scores] = (await connection.execute(
@@ -65,16 +77,35 @@ export async function GET(request: NextRequest) {
             [submission.id]
           )) as any[];
 
-          // Organize scores by type
+          // Organize scores by type (get latest of each type for display)
           const scoreA = scores.find((s: any) => s.score_type === "A");
           const scoreB = scores.find((s: any) => s.score_type === "B");
           
-          // Calculate average if both scores exist
+          // Get all scores of each type for detailed view
+          const allScoresA = scores.filter((s: any) => s.score_type === "A");
+          const allScoresB = scores.filter((s: any) => s.score_type === "B");
+          
+          // Calculate average - use both scores if available, otherwise use single score
           let averageScore = null;
           if (scoreA && scoreB) {
-            const avg = (scoreA.score + scoreB.score) / 2;
-            // Remove unnecessary decimal places
-            averageScore = avg % 1 === 0 ? avg.toString() : avg.toFixed(1);
+            const scoreAValue = typeof scoreA.score === 'string' ? parseFloat(scoreA.score) : scoreA.score;
+            const scoreBValue = typeof scoreB.score === 'string' ? parseFloat(scoreB.score) : scoreB.score;
+            if (!isNaN(scoreAValue) && !isNaN(scoreBValue)) {
+              const avg = (scoreAValue + scoreBValue) / 2;
+              averageScore = avg % 1 === 0 ? avg.toString() : avg.toFixed(2);
+            }
+          } else if (scoreA) {
+            // If only scoreA exists, use it as average
+            const scoreAValue = typeof scoreA.score === 'string' ? parseFloat(scoreA.score) : scoreA.score;
+            if (!isNaN(scoreAValue)) {
+              averageScore = scoreAValue % 1 === 0 ? scoreAValue.toString() : scoreAValue.toFixed(2);
+            }
+          } else if (scoreB) {
+            // If only scoreB exists, use it as average
+            const scoreBValue = typeof scoreB.score === 'string' ? parseFloat(scoreB.score) : scoreB.score;
+            if (!isNaN(scoreBValue)) {
+              averageScore = scoreBValue % 1 === 0 ? scoreBValue.toString() : scoreBValue.toFixed(2);
+            }
           }
 
           return {
@@ -82,6 +113,8 @@ export async function GET(request: NextRequest) {
             scores: {
               scoreA: scoreA || null,
               scoreB: scoreB || null,
+              allScoresA: allScoresA || [],
+              allScoresB: allScoresB || [],
               average: averageScore,
               totalScores: scores.length,
             },

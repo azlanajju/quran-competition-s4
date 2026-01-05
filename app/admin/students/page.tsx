@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import VideoPlayer from "@/components/VideoPlayer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, X, FileText, Eye } from "lucide-react";
+import { ArrowLeft, X, FileText, Eye, Play, Calendar } from "lucide-react";
 
 interface Student {
   id: number;
@@ -20,6 +21,7 @@ interface Student {
   created_at: string;
   video_count: number;
   last_video_date: string | null;
+  latest_submission_id: number | null;
   id_card_key: string | null;
   id_card_url: string | null;
 }
@@ -33,8 +35,13 @@ export default function AdminStudents() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedIdCard, setSelectedIdCard] = useState<{ studentId: number; signedUrl: string; fileName: string } | null>(null);
   const [loadingIdCard, setLoadingIdCard] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<{ submissionId: number; name: string } | null>(null);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+  const [preloadVideoUrl, setPreloadVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     // Check authentication
@@ -63,7 +70,7 @@ export default function AdminStudents() {
     if (!checkingAuth) {
       fetchStudents();
     }
-  }, [page, statusFilter, search, checkingAuth]);
+  }, [page, statusFilter, search, dateFrom, dateTo, checkingAuth]);
 
   const fetchStudents = async () => {
     try {
@@ -74,6 +81,8 @@ export default function AdminStudents() {
       });
       if (statusFilter) params.append("status", statusFilter);
       if (search) params.append("search", search);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
 
       const response = await fetch(`/api/admin/students?${params}`);
       const data = await response.json();
@@ -130,6 +139,29 @@ export default function AdminStudents() {
     }
   };
 
+  const openVideo = async (submissionId: number, studentName: string) => {
+    setIsLoadingVideo(true);
+    
+    try {
+      const response = await fetch(`/api/video/signed-url?submissionId=${submissionId}&type=original`);
+      const data = await response.json();
+      if (data.success && data.signedUrl) {
+        setPreloadVideoUrl(data.signedUrl);
+      }
+      setSelectedVideo({ submissionId, name: studentName });
+      setIsLoadingVideo(false);
+    } catch (err) {
+      console.error("Error fetching video URL:", err);
+      setIsLoadingVideo(false);
+    }
+  };
+
+  const clearDateFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
+
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
@@ -160,7 +192,7 @@ export default function AdminStudents() {
         {/* Filters */}
           <Card className="mb-6 border-0 shadow-md">
             <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
               <input
@@ -191,6 +223,49 @@ export default function AdminStudents() {
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                Date From
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                Date To
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setPage(1);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
+                />
+                {(dateFrom || dateTo) && (
+                  <Button
+                    onClick={clearDateFilters}
+                    variant="outline"
+                    size="sm"
+                    className="px-3"
+                    title="Clear date filters"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
             </CardContent>
@@ -223,6 +298,9 @@ export default function AdminStudents() {
                       ID Card
                     </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Registered
+                    </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -245,8 +323,22 @@ export default function AdminStudents() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {student.city}, {student.state}
                       </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {student.video_count || 0}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900">{student.video_count || 0}</span>
+                          {student.latest_submission_id && student.video_count > 0 && (
+                            <Button
+                              onClick={() => openVideo(student.latest_submission_id!, student.full_name)}
+                              disabled={isLoadingVideo}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                            >
+                              <Play className="h-3.5 w-3.5" />
+                              View Video
+                            </Button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {student.id_card_key ? (
@@ -263,6 +355,12 @@ export default function AdminStudents() {
                         ) : (
                           <span className="text-sm text-gray-400">No ID card</span>
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {new Date(student.created_at).toLocaleDateString()}
+                        <div className="text-xs text-gray-500">
+                          {new Date(student.created_at).toLocaleTimeString()}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -300,32 +398,101 @@ export default function AdminStudents() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                Page {page} of {totalPages}
-              </div>
-              <div className="flex gap-2">
-                  <Button
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-600">
+              Page {page} of {totalPages}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  variant="outline"
+                  size="sm"
+                >
+                  First
+                </Button>
+                <Button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                    variant="outline"
-                    size="sm"
+                  variant="outline"
+                  size="sm"
                 >
                   Previous
-                  </Button>
-                  <Button
+                </Button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (page <= 3) {
+                      pageNum = i + 1;
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = page - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        variant={page === pageNum ? "default" : "outline"}
+                        size="sm"
+                        className={page === pageNum ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                    variant="outline"
-                    size="sm"
+                  variant="outline"
+                  size="sm"
                 >
                   Next
-                  </Button>
+                </Button>
+                <Button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  variant="outline"
+                  size="sm"
+                >
+                  Last
+                </Button>
+              </div>
+            )}
+          </div>
+          </Card>
+
+          {/* Loading Overlay for Video */}
+          {isLoadingVideo && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#072F6B]"></div>
+                <div className="text-gray-700 font-medium">Loading video...</div>
+                <div className="text-sm text-gray-500">Please wait</div>
               </div>
             </div>
           )}
-          </Card>
+
+          {/* Video Player Modal */}
+          {selectedVideo && (
+            <VideoPlayer 
+              submissionId={selectedVideo.submissionId} 
+              studentName={selectedVideo.name} 
+              signedUrl={preloadVideoUrl || undefined}
+              onClose={() => {
+                setSelectedVideo(null);
+                setPreloadVideoUrl(null);
+              }} 
+            />
+          )}
 
           {/* ID Card Modal */}
           {selectedIdCard && (
