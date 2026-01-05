@@ -622,7 +622,7 @@ export default function StudentRegistration() {
                       <label htmlFor="phone" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                         Phone Number <span className="text-red-400">*</span>
                       </label>
-                      <input {...register("phone")} type="tel" id="phone" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="+91 1234567890" />
+                      <input {...register("phone")} type="tel" id="phone" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="+91 1234567890" style={{ fontSize: '16px' }} />
                     </div>
 
                     <div className="md:col-span-2 w-full">
