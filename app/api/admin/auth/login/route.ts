@@ -46,12 +46,18 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Set session cookie (in production, use secure, httpOnly, sameSite)
+      // Set session cookie (use secure only if actually using HTTPS)
+      // Check if request is over HTTPS (either directly or via proxy)
+      const protocol = request.headers.get("x-forwarded-proto") || 
+                      (request.url.startsWith("https://") ? "https" : "http");
+      const isSecure = protocol === "https" || process.env.FORCE_SECURE_COOKIES === "true";
+      
       response.cookies.set("admin_session", JSON.stringify({ id: admin.id, email: admin.email }), {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: isSecure,
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: "/",
       });
 
       return response;

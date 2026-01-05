@@ -2,9 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadBufferToS3 } from '@/lib/s3-upload';
 import { v4 as uuidv4 } from 'uuid';
 
+// Configure route to handle large file uploads
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5 minutes for large file uploads
+
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error: any) {
+      // Handle body size limit errors (413)
+      if (error.message?.includes('413') || error.message?.includes('too large') || error.message?.includes('PayloadTooLargeError')) {
+        return NextResponse.json(
+          { 
+            error: 'File size exceeds server limit',
+            details: 'The file you are trying to upload is too large. Please check your server configuration (nginx client_max_body_size, hosting platform limits, etc.)',
+            code: 'PAYLOAD_TOO_LARGE'
+          },
+          { status: 413 }
+        );
+      }
+      throw error;
+    }
+    
     const file = formData.get('file') as File;
 
     if (!file) {
