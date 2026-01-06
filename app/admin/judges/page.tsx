@@ -199,22 +199,23 @@ export default function AdminJudges() {
       <AdminSidebar />
       <div className="lg:ml-64">
         <AdminHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">Judge Management</h1>
-              <p className="text-gray-600">Create and manage judge accounts</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">Judge Management</h1>
+              <p className="text-sm sm:text-base text-gray-600">Create and manage judge accounts</p>
           </div>
-          <div className="flex gap-4">
-              <Link href="/admin">
-                <Button variant="outline" className="gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+              <Link href="/admin" className="w-full sm:w-auto">
+                <Button variant="outline" className="gap-2 w-full sm:w-auto">
                   <ArrowLeft className="h-4 w-4" />
-                  Back to Dashboard
+                  <span className="hidden sm:inline">Back to Dashboard</span>
+                  <span className="sm:hidden">Back</span>
                 </Button>
             </Link>
               <Button
               onClick={() => handleOpenModal()}
-                className="bg-[#072F6B] hover:bg-[#0B1A3A] text-white gap-2"
+                className="bg-[#072F6B] hover:bg-[#0B1A3A] text-white gap-2 w-full sm:w-auto"
             >
                 <Plus className="h-4 w-4" />
                 Add Judge
@@ -241,8 +242,10 @@ export default function AdminJudges() {
           ) : judges.length === 0 ? (
               <div className="p-8 text-center text-gray-400">No judges found. Create your first judge account.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Username</th>
@@ -293,7 +296,53 @@ export default function AdminJudges() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-gray-200">
+                {judges.map((judge) => (
+                  <div key={judge.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-900">{judge.full_name}</div>
+                        <div className="text-xs text-gray-600 mt-1">@{judge.username}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Created: {new Date(judge.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
+                          judge.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {judge.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                      <Button
+                        onClick={() => handleOpenModal(judge)}
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1"
+                      >
+                        <Edit className="h-3 w-3" />
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={() => handleDelete(judge.id)}
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1 text-red-600 hover:text-red-700 hover:border-red-300"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           </Card>
         </div>
@@ -301,8 +350,8 @@ export default function AdminJudges() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md mx-4 border-2 shadow-2xl bg-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+          <Card className="w-full max-w-md mx-2 sm:mx-4 border-2 shadow-2xl bg-white">
             <CardContent className="pt-6 bg-white">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">{editingJudge ? "Edit Judge" : "Create Judge"}</h2>

@@ -19,29 +19,29 @@ export default function AdminHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="flex h-16 items-center justify-between px-6">
+      <div className="flex h-16 items-center justify-between px-3 sm:px-6">
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Image 
             src="/images/logo.png" 
             alt="Qira'at Logo" 
-            width={40} 
-            height={40} 
-            className="object-contain" 
+            width={32} 
+            height={32} 
+            className="object-contain sm:w-10 sm:h-10" 
             priority 
           />
           <div className="flex flex-col">
-            <span className="text-lg font-bold text-gray-900 tracking-tight">QIRA&apos;AT</span>
-            <span className="text-xs text-[#072F6B] font-semibold" dir="rtl" style={{ fontFamily: "serif" }}>
+            <span className="text-sm sm:text-lg font-bold text-gray-900 tracking-tight">QIRA&apos;AT</span>
+            <span className="text-[10px] sm:text-xs text-[#072F6B] font-semibold" dir="rtl" style={{ fontFamily: "serif" }}>
               القراءة
             </span>
           </div>
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
           {/* Search */}
-          <div className="relative hidden md:block">
+          <div className="relative hidden lg:block">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -51,19 +51,19 @@ export default function AdminHeader() {
           </div>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5 text-gray-600" />
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"></span>
+          <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10">
+            <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+            <span className="absolute right-0.5 top-0.5 sm:right-1 sm:top-1 h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500"></span>
           </Button>
 
-          {/* Settings */}
-          <Button variant="ghost" size="icon">
-            <Settings className="h-5 w-5 text-gray-600" />
+          {/* Settings - Hidden on mobile */}
+          <Button variant="ghost" size="icon" className="hidden sm:flex h-8 w-8 sm:h-10 sm:w-10">
+            <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
           </Button>
 
           {/* Logout */}
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-5 w-5 text-gray-600" />
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 sm:h-10 sm:w-10" title="Logout">
+            <LogOut className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
           </Button>
         </div>
       </div>

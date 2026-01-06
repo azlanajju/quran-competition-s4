@@ -167,11 +167,11 @@ export default function AdminDashboard() {
       <AdminSidebar />
       <div className="lg:ml-64">
         <AdminHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {/* Header Section */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">Dashboard</h1>
-          <p className="text-gray-500 text-lg">Welcome back! Here's what's happening with your registrations.</p>
+        <div className="mb-6 sm:mb-8 md:mb-10">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">Dashboard</h1>
+          <p className="text-gray-500 text-sm sm:text-base md:text-lg">Welcome back! Here's what's happening with your registrations.</p>
         </div>
 
         {/* Stats Cards - Modern Design */}
@@ -258,8 +258,8 @@ export default function AdminDashboard() {
               <CardDescription className="text-gray-500">30-day trend of registrations and submissions</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={activityChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={activityChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="date" 
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
               <CardDescription className="text-gray-500">Distribution of submission statuses</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
                     data={statusPieData}
@@ -341,8 +341,8 @@ export default function AdminDashboard() {
               <CardDescription className="text-gray-500">Students by registration status</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={registrationStatusData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={registrationStatusData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="name" 

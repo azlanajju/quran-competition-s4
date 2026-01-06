@@ -210,16 +210,17 @@ export default function AdminSubmissions() {
       <AdminSidebar />
       <div className="lg:ml-64">
         <AdminHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+          <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">Video Submissions</h1>
-              <p className="text-gray-600">Review and manage video submissions</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">Video Submissions</h1>
+              <p className="text-sm sm:text-base text-gray-600">Review and manage video submissions</p>
             </div>
             <Link href="/admin">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 w-full sm:w-auto">
                 <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
+                <span className="hidden sm:inline">Back to Dashboard</span>
+                <span className="sm:hidden">Back</span>
               </Button>
             </Link>
           </div>
@@ -299,8 +300,10 @@ export default function AdminSubmissions() {
             ) : submissions.length === 0 ? (
               <div className="p-8 text-center text-gray-400">No submissions found</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student</th>
@@ -429,7 +432,113 @@ export default function AdminSubmissions() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-gray-200">
+                  {submissions.map((submission) => (
+                    <div key={submission.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-gray-900">{submission.full_name}</div>
+                          <div className="text-xs text-gray-600 mt-1">{submission.phone}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {submission.city}, {submission.state}
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
+                          submission.processing_status === "completed" 
+                            ? "bg-green-100 text-green-800" 
+                            : submission.processing_status === "failed" 
+                            ? "bg-red-100 text-red-800" 
+                            : submission.processing_status === "processing" 
+                            ? "bg-yellow-100 text-yellow-800" 
+                            : "bg-gray-100 text-gray-800"
+                        }`}>
+                          {submission.processing_status}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-500">Resolution:</span>
+                          <span className="ml-1 text-gray-900">{submission.video_resolution}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Submitted:</span>
+                          <span className="ml-1 text-gray-900">{new Date(submission.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {submission.scores && submission.scores.totalScores > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-gray-100">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {submission.scores.scoreA && (
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-lg border border-blue-200">
+                                <span className="text-xs font-semibold text-blue-700">A:</span>
+                                <span className="text-sm font-bold text-[#072F6B]">
+                                  {(() => {
+                                    const scoreValue = typeof submission.scores.scoreA.score === 'number' 
+                                      ? submission.scores.scoreA.score 
+                                      : parseFloat(submission.scores.scoreA.score);
+                                    if (isNaN(scoreValue)) return submission.scores.scoreA.score;
+                                    return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
+                                  })()}
+                                </span>
+                              </div>
+                            )}
+                            {submission.scores.scoreB && (
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200">
+                                <span className="text-xs font-semibold text-purple-700">B:</span>
+                                <span className="text-sm font-bold text-[#072F6B]">
+                                  {(() => {
+                                    const scoreValue = typeof submission.scores.scoreB.score === 'number' 
+                                      ? submission.scores.scoreB.score 
+                                      : parseFloat(submission.scores.scoreB.score);
+                                    if (isNaN(scoreValue)) return submission.scores.scoreB.score;
+                                    return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
+                                  })()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          {submission.scores.average && !isNaN(parseFloat(submission.scores.average)) && (
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#072F6B]/10 rounded-lg border border-[#072F6B]/20">
+                              <TrendingUp className="h-4 w-4 text-[#072F6B]" />
+                              <span className="text-xs font-medium text-gray-700">Avg:</span>
+                              <span className="text-sm font-bold text-[#072F6B]">{submission.scores.average}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex flex-col gap-2 pt-2">
+                        {submission.processing_status === "completed" && (
+                          <Button 
+                            onClick={() => openVideo(submission.id, submission.full_name)} 
+                            size="sm"
+                            className="w-full bg-[#072F6B] hover:bg-[#0B1A3A] text-white"
+                          >
+                            View Video
+                          </Button>
+                        )}
+                        {submission.scores && submission.scores.totalScores > 0 && (
+                          <Button 
+                            onClick={() => viewScores(submission)} 
+                            size="sm"
+                            variant="outline"
+                            className="w-full gap-1.5"
+                            disabled={loadingScores}
+                          >
+                            <Award className="h-3.5 w-3.5" />
+                            View Scores
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* Pagination */}
@@ -564,8 +673,8 @@ export default function AdminSubmissions() {
 
       {/* Scores Modal */}
       {selectedScores && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-xl border-2 border-gray-200 shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4">
+          <div className="relative w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] bg-white rounded-xl border-2 border-gray-200 shadow-2xl overflow-hidden flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
               <div>
@@ -585,7 +694,7 @@ export default function AdminSubmissions() {
             </div>
 
             {/* Scores Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* Score A Section */}
               <div>
                 <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center gap-2">

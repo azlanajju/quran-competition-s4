@@ -57,13 +57,13 @@ export default function AdminSidebar() {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-lg bg-white border border-gray-200 shadow-md"
+        className="fixed top-3 left-3 z-50 lg:hidden p-2 rounded-lg bg-white border border-gray-200 shadow-md"
         aria-label="Toggle menu"
       >
         {isMobileOpen ? (
-          <X className="h-6 w-6 text-gray-700" />
+          <X className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
         ) : (
-          <Menu className="h-6 w-6 text-gray-700" />
+          <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
         )}
       </button>
 
