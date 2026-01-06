@@ -151,6 +151,9 @@ export default function AdminSubmissions() {
           }
         }
         
+        // Calculate total scores count
+        const totalScoresCount = (data.scores.A?.length || 0) + (data.scores.B?.length || 0);
+        
         // Update submission with all scores and recalculated average
         const updatedSubmission = {
           ...submission,
@@ -161,6 +164,7 @@ export default function AdminSubmissions() {
             allScoresA: data.scores.A || [],
             allScoresB: data.scores.B || [],
             average: averageScore,
+            totalScores: totalScoresCount,
           },
         };
         setSelectedScores(updatedSubmission);
