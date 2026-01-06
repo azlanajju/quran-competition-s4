@@ -591,10 +591,12 @@ export default function StudentRegistration() {
                   <div className="text-left text-[#C7D1E0] text-xs sm:text-sm md:text-base space-y-1 sm:space-y-2">
                     <p className="font-semibold text-[#D4AF37] text-xs sm:text-sm md:text-base">Important Information:</p>
                     <ul className="list-disc list-inside space-y-0.5 sm:space-y-1 ml-1 sm:ml-2">
-                      <li>All fields marked with * are required</li>
-                      <li>Upload a 2-minute recitation video (MP4, WebM, or other supported formats)</li>
-                      <li>Provide a valid ID card proof (JPG, PNG, or PDF - Max 5MB)</li>
-                      <li>Ensure you are between 10-16 years of age</li>
+                     <li>All fields marked with * are required</li>
+<li>Upload a 2-minute recitation video (MP4, WebM, or other supported formats)</li>
+<li>Provide a valid ID card proof (JPG, PNG, or PDF – Max 5MB)</li>
+<li>Ensure you are between 10–16 years of age</li>
+<li>Only one registration is allowed per phone number</li>
+
                     </ul>
                   </div>
                 </div>
