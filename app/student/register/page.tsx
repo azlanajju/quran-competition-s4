@@ -9,6 +9,7 @@ import UploadProgressOverlay from "@/components/UploadProgressOverlay";
 import VideoUpload from "@/components/VideoUpload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
@@ -29,10 +30,8 @@ const registrationSchema = z.object({
       const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
       return actualAge >= 5 && actualAge <= 18; // Age validation as per competition rules
     }, "Age must be between 5 and 18 years"),
-  address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
-  zipCode: z.string().optional(),
 });
 
 type RegistrationFormData = z.infer<typeof registrationSchema>;
@@ -63,6 +62,7 @@ export default function StudentRegistration() {
     message: string;
   } | null>(null);
 
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -73,6 +73,18 @@ export default function StudentRegistration() {
   });
 
   const previousErrorsRef = useRef<typeof errors>({});
+
+  // Redirect to home page after successful registration
+  useEffect(() => {
+    if (showSuccessPopup) {
+      // Auto-redirect after 5 seconds
+      const timer = setTimeout(() => {
+        router.push("/");
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessPopup, router]);
 
   // Show toast notifications for form validation errors
   useEffect(() => {
@@ -511,6 +523,7 @@ export default function StudentRegistration() {
         isOpen={showSuccessPopup}
         onClose={() => {
           setShowSuccessPopup(false);
+          router.push("/");
         }}
         studentId={successData.studentId}
         submissionId={successData.submissionId}
@@ -643,35 +656,19 @@ export default function StudentRegistration() {
                     <span className="text-lg sm:text-xl md:text-2xl">📍</span>
                     <span>Address Information</span>
                   </h2>
-                  <div className="space-y-4 sm:space-y-5 md:space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
                     <div>
-                      <label htmlFor="address" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                        Street Address
+                      <label htmlFor="city" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
+                        City
                       </label>
-                      <input {...register("address")} type="text" id="address" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Enter your street address" />
+                      <input {...register("city")} type="text" id="city" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="City" />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-                      <div>
-                        <label htmlFor="city" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                          City
-                        </label>
-                        <input {...register("city")} type="text" id="city" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="City" />
-                      </div>
-
-                      <div>
-                        <label htmlFor="state" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                          State
-                        </label>
-                        <input {...register("state")} type="text" id="state" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="State" />
-                      </div>
-
-                      <div>
-                        <label htmlFor="zipCode" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
-                          Zip Code
-                        </label>
-                        <input {...register("zipCode")} type="text" id="zipCode" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Zip Code" />
-                      </div>
+                    <div>
+                      <label htmlFor="state" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
+                        State
+                      </label>
+                      <input {...register("state")} type="text" id="state" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-sm sm:text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="State" />
                     </div>
                   </div>
                 </div>

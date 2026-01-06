@@ -47,17 +47,15 @@ export async function POST(request: NextRequest) {
       // Insert student registration (address fields are optional)
       const [result] = await connection.execute(
         `INSERT INTO students (
-          full_name, phone, date_of_birth, address, city, state, zip_code, 
+          full_name, phone, date_of_birth, city, state, 
           id_card_key, id_card_url, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted')`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted')`,
         [
           body.fullName, 
           body.phone, 
           body.dateOfBirth, 
-          body.address || null, 
           body.city || null, 
           body.state || null, 
-          body.zipCode || null, 
           body.idCardKey, 
           body.idCardUrl || `s3://${process.env.AWS_S3_BUCKET_NAME}/${body.idCardKey}`
         ]
