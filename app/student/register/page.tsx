@@ -24,12 +24,16 @@ const registrationSchema = z.object({
     .min(1, "Date of birth is required")
     .refine((date) => {
       const birthDate = new Date(date);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
-      return actualAge >= 5 && actualAge <= 18; // Age validation as per competition rules
-    }, "Age must be between 5 and 18 years"),
+      // Competition dates: Registration Jan 10-20, 2026, Finale Jan 28, 2026
+      // Must be 10 years old by Jan 9, 2026 (birthdate on or before Jan 9, 2016)
+      // Must not turn 17 before Jan 30, 2026 (birthdate on or after Jan 30, 2009)
+      const minDate = new Date("2016-01-09"); // Latest birthdate to be 10 by Jan 9, 2026
+      const maxDate = new Date("2009-01-30"); // Earliest birthdate to be 16y 11m 29d on Jan 29, 2026
+
+      // Birthdate must be on or before Jan 9, 2016 (at least 10 years old by Jan 9, 2026)
+      // Birthdate must be on or after Jan 30, 2009 (not yet 17 on Jan 29, 2026)
+      return birthDate <= minDate && birthDate >= maxDate;
+    }, "Age must be between 10 and 16 years. You must be 10 years old by January 9, 2026 and not turn 17 before January 30, 2026."),
   city: z.string().optional(),
   state: z.string().optional(),
 });
@@ -604,12 +608,11 @@ export default function StudentRegistration() {
                   <div className="text-left text-[#C7D1E0] text-xs sm:text-sm md:text-base space-y-1 sm:space-y-2">
                     <p className="font-semibold text-[#D4AF37] text-xs sm:text-sm md:text-base">Important Information:</p>
                     <ul className="list-disc list-inside space-y-0.5 sm:space-y-1 ml-1 sm:ml-2">
-                     <li>All fields marked with * are required</li>
-<li>Upload a 2-minute recitation video (MP4, WebM, or other supported formats)</li>
-<li>Provide a valid ID card proof (JPG, PNG, or PDF – Max 5MB)</li>
-<li>Ensure you are between 10–16 years of age</li>
-<li>Only one registration is allowed per phone number</li>
-
+                      <li>All fields marked with * are required</li>
+                      <li>Upload a 2-minute recitation video (MP4, WebM, or other supported formats) of any surah of your choice</li>
+                      <li>Provide a valid ID card proof (JPG, PNG, or PDF – Max 5MB)</li>
+                      <li>Ensure you are between 10–16 years of age</li>
+                      <li>Only one registration is allowed per phone number</li>
                     </ul>
                   </div>
                 </div>
@@ -637,7 +640,7 @@ export default function StudentRegistration() {
                       <label htmlFor="phone" className="block text-xs sm:text-sm font-semibold text-[#FFFFFF] mb-1.5 sm:mb-2">
                         Phone Number <span className="text-red-400">*</span>
                       </label>
-                      <input {...register("phone")} type="tel" id="phone" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="+91 1234567890" style={{ fontSize: '16px' }} />
+                      <input {...register("phone")} type="tel" id="phone" className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-lg text-base text-[#FFFFFF] placeholder-[#C7D1E0]/60 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="+91 1234567890" style={{ fontSize: "16px" }} />
                     </div>
 
                     <div className="md:col-span-2 w-full">
@@ -645,7 +648,7 @@ export default function StudentRegistration() {
                         Date of Birth <span className="text-red-400">*</span>
                       </label>
                       <input {...register("dateOfBirth")} type="date" id="dateOfBirth" className="w-full max-w-[280px] sm:max-w-full box-border px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border border-[#C9A24D]/50 rounded-md sm:rounded-lg text-xs sm:text-sm md:text-base text-[#FFFFFF] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all [color-scheme:dark]" style={{ maxWidth: "280px", fontSize: "0.75rem" }} />
-                      <p className="mt-1 sm:mt-1.5 md:mt-2 text-xs text-[#C7D1E0]/70">Age must be between 10-16 years</p>
+                      <p className="mt-1 sm:mt-1.5 md:mt-2 text-xs text-[#C7D1E0]/70">Must be 10 years old by Jan 9, 2026 and not turn 17 before Jan 30, 2026</p>
                     </div>
                   </div>
                 </div>

@@ -3,18 +3,16 @@
 import JudgeHeader from "@/components/judge/JudgeHeader";
 import JudgeSidebar from "@/components/judge/JudgeSidebar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatStudentId } from "@/lib/utils";
+import { AlertCircle, CheckCircle2, Clock, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileText, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 
 interface Submission {
   id: number;
   student_id: number;
   full_name: string;
-  phone: string;
-  city: string;
-  state: string;
   original_video_key: string;
   original_video_url: string;
   created_at: string;
@@ -203,32 +201,16 @@ export default function JudgePanel() {
 
           {/* Filter Buttons */}
           <div className="mb-4 flex flex-wrap gap-2">
-            <Button
-              variant={filter === "all" ? "default" : "outline"}
-              onClick={() => setFilter("all")}
-              className={filter === "all" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}
-            >
+            <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")} className={filter === "all" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}>
               All
             </Button>
-            <Button
-              variant={filter === "pending" ? "default" : "outline"}
-              onClick={() => setFilter("pending")}
-              className={filter === "pending" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}
-            >
+            <Button variant={filter === "pending" ? "default" : "outline"} onClick={() => setFilter("pending")} className={filter === "pending" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}>
               Pending ({statistics.pending})
             </Button>
-            <Button
-              variant={filter === "partial" ? "default" : "outline"}
-              onClick={() => setFilter("partial")}
-              className={filter === "partial" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}
-            >
+            <Button variant={filter === "partial" ? "default" : "outline"} onClick={() => setFilter("partial")} className={filter === "partial" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}>
               Partial ({statistics.partial})
             </Button>
-            <Button
-              variant={filter === "scored" ? "default" : "outline"}
-              onClick={() => setFilter("scored")}
-              className={filter === "scored" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}
-            >
+            <Button variant={filter === "scored" ? "default" : "outline"} onClick={() => setFilter("scored")} className={filter === "scored" ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}>
               Fully Scored ({statistics.scored})
             </Button>
           </div>
@@ -246,7 +228,8 @@ export default function JudgePanel() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student ID</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student Name</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Submitted</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
@@ -281,16 +264,13 @@ export default function JudgePanel() {
 
                           return (
                             <tr key={submission.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-semibold text-[#072F6B]">{formatStudentId(submission.student_id)}</div>
+                              </td>
                               <td className="px-6 py-4">
                                 <div className="text-sm font-medium text-gray-900">{submission.full_name}</div>
-                                <div className="text-sm text-gray-600">{submission.phone}</div>
-                                <div className="text-xs text-gray-500">
-                                  {submission.city}, {submission.state}
-                                </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {getStatusBadge()}
-                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge()}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(submission.created_at).toLocaleString()}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 <Button onClick={() => router.push(`/judge/submission/${submission.id}`)} className="bg-[#072F6B] hover:bg-[#0B1A3A] text-white">

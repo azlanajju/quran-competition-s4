@@ -252,7 +252,7 @@ export default function Home() {
                   <ul className="list-disc list-inside space-y-1 sm:space-y-2 ml-2">
                     <li><span className="font-semibold">Eligibility:</span> Boys and girls between 10 and 16 years of age.</li>
                     <li><span className="font-semibold">Registration period:</span> From January 10 to January 20, 2026.</li>
-                    <li><span className="font-semibold">Method:</span> Participants can scan the QR code or visit the link given on the poster and upload a 2-minute recitation video to register their names.</li>
+                    <li><span className="font-semibold">Method:</span> Participants can scan the QR code or visit the link given on the poster and upload a 2-minute recitation video of any surah of their choice to register their names.</li>
                   </ul>
                 </div>
 

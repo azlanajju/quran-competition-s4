@@ -2,11 +2,12 @@
 
 import JudgeHeader from "@/components/judge/JudgeHeader";
 import JudgeSidebar from "@/components/judge/JudgeSidebar";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatStudentId } from "@/lib/utils";
+import { Award, CheckCircle2, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Award, CheckCircle2, XCircle } from "lucide-react";
 
 // Format date consistently to avoid hydration issues
 const formatDate = (dateString: string) => {
@@ -14,16 +15,14 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
-    day: "numeric"
+    day: "numeric",
   });
 };
 
 interface Evaluation {
   submission_id: number;
+  student_id: number;
   student_name: string;
-  student_phone: string;
-  student_city: string;
-  student_state: string;
   score_a: number | null;
   score_b: number | null;
   description_a: string | null;
@@ -140,7 +139,8 @@ export default function JudgeEvaluationsPage() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student ID</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student Name</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Score A</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Score B</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
@@ -153,34 +153,17 @@ export default function JudgeEvaluationsPage() {
                           const hasScoreA = evaluation.score_a !== null;
                           const hasScoreB = evaluation.score_b !== null;
                           const isComplete = hasScoreA && hasScoreB;
-                          
+
                           return (
                             <tr key={evaluation.submission_id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-semibold text-[#072F6B]">{formatStudentId(evaluation.student_id)}</div>
+                              </td>
                               <td className="px-6 py-4">
                                 <div className="text-sm font-medium text-gray-900">{evaluation.student_name}</div>
-                                <div className="text-sm text-gray-600">{evaluation.student_phone}</div>
-                                <div className="text-xs text-gray-500">
-                                  {evaluation.student_city}, {evaluation.student_state}
-                                </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {hasScoreA ? (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {formatScore(evaluation.score_a)}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {hasScoreB ? (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    {formatScore(evaluation.score_b)}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">{hasScoreA ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{formatScore(evaluation.score_a)}</span> : <span className="text-gray-400">—</span>}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">{hasScoreB ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{formatScore(evaluation.score_b)}</span> : <span className="text-gray-400">—</span>}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {isComplete ? (
                                   <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
@@ -194,16 +177,9 @@ export default function JudgeEvaluationsPage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {formatDate(evaluation.created_at)}
-                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(evaluation.created_at)}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <Button 
-                                  onClick={() => router.push(`/judge/submission/${evaluation.submission_id}`)} 
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-[#072F6B] border-[#072F6B] hover:bg-[#072F6B] hover:text-white"
-                                >
+                                <Button onClick={() => router.push(`/judge/submission/${evaluation.submission_id}`)} variant="outline" size="sm" className="text-[#072F6B] border-[#072F6B] hover:bg-[#072F6B] hover:text-white">
                                   View / Edit
                                 </Button>
                               </td>
@@ -221,20 +197,10 @@ export default function JudgeEvaluationsPage() {
                         Page {page} of {totalPages}
                       </div>
                       <div className="flex gap-2">
-                        <Button 
-                          onClick={() => setPage((p) => Math.max(1, p - 1))} 
-                          disabled={page === 1} 
-                          variant="outline"
-                          className="disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                        <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} variant="outline" className="disabled:opacity-50 disabled:cursor-not-allowed">
                           Previous
                         </Button>
-                        <Button 
-                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))} 
-                          disabled={page === totalPages} 
-                          variant="outline"
-                          className="disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                        <Button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="outline" className="disabled:opacity-50 disabled:cursor-not-allowed">
                           Next
                         </Button>
                       </div>
@@ -249,4 +215,3 @@ export default function JudgeEvaluationsPage() {
     </div>
   );
 }
-

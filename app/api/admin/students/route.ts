@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
+    const state = searchParams.get("state");
+    const city = searchParams.get("city");
 
     const offset = (page - 1) * limit;
 
@@ -26,9 +28,28 @@ export async function GET(request: NextRequest) {
       }
 
       if (search) {
-        whereClause += " AND (s.full_name LIKE ? OR s.phone LIKE ? OR s.city LIKE ?)";
-        const searchTerm = `%${search}%`;
-        params.push(searchTerm, searchTerm, searchTerm);
+        // Check if search term matches student ID format (S-XX or s-XX)
+        const studentIdMatch = search.match(/^[Ss]-?(\d+)$/);
+        if (studentIdMatch) {
+          // Extract the numeric ID from the formatted string (e.g., "S-10" -> 10, "S10" -> 10)
+          const studentId = parseInt(studentIdMatch[1]);
+          whereClause += " AND s.id = ?";
+          params.push(studentId);
+        } else {
+          // Regular search by name, phone, city, or numeric ID
+          const searchTerm = `%${search}%`;
+          const numericSearch = parseInt(search.trim());
+
+          if (!isNaN(numericSearch)) {
+            // If search is numeric, also search by ID
+            whereClause += " AND (s.full_name LIKE ? OR s.phone LIKE ? OR s.city LIKE ? OR s.id = ?)";
+            params.push(searchTerm, searchTerm, searchTerm, numericSearch);
+          } else {
+            // Non-numeric search: only search by name, phone, city
+            whereClause += " AND (s.full_name LIKE ? OR s.phone LIKE ? OR s.city LIKE ?)";
+            params.push(searchTerm, searchTerm, searchTerm);
+          }
+        }
       }
 
       if (dateFrom) {
@@ -39,6 +60,16 @@ export async function GET(request: NextRequest) {
       if (dateTo) {
         whereClause += " AND DATE(s.created_at) <= ?";
         params.push(dateTo);
+      }
+
+      if (state) {
+        whereClause += " AND s.state = ?";
+        params.push(state);
+      }
+
+      if (city) {
+        whereClause += " AND s.city = ?";
+        params.push(city);
       }
 
       // Get total count

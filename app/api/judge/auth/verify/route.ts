@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     try {
       // Verify judge exists and is active
       const [judges] = (await connection.execute(
-        `SELECT id, username, full_name, is_active 
+        `SELECT id, username, full_name, is_active, score_type, sequence_from, sequence_to 
          FROM judges 
          WHERE id = ? AND is_active = TRUE`,
         [session.id]
@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
           id: judge.id,
           username: judge.username,
           fullName: judge.full_name,
+          scoreType: judge.score_type,
+          sequenceFrom: judge.sequence_from,
+          sequenceTo: judge.sequence_to,
         },
       });
     } finally {

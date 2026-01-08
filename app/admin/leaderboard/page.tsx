@@ -2,12 +2,13 @@
 
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatStudentId } from "@/lib/utils";
+import { ArrowLeft, Medal, TrendingUp, Trophy } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trophy, Medal, Award, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface LeaderboardEntry {
   rank: number;
@@ -141,127 +142,76 @@ export default function AdminLeaderboard() {
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
-                  <thead className="bg-gradient-to-r from-[#072F6B] to-[#0B1A3A] text-white">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Rank</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Student</th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">Score A</th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">Score B</th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">Average</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Location</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Submitted</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {leaderboard.map((entry) => (
-                      <tr
-                        key={entry.submission_id}
-                        className={`hover:bg-gray-50 transition-colors ${
-                          entry.rank <= 3 ? "bg-gradient-to-r from-yellow-50/30 to-transparent" : ""
-                        }`}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold text-sm ${getRankBadgeColor(
-                                entry.rank
-                              )}`}
-                            >
-                              {getRankIcon(entry.rank) || entry.rank}
-                            </div>
-                            {entry.rank <= 3 && (
-                              <span className="text-xs font-semibold text-gray-600">
-                                {entry.rank === 1 ? "🥇 Gold" : entry.rank === 2 ? "🥈 Silver" : "🥉 Bronze"}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-semibold text-gray-900">{entry.full_name}</div>
-                          <div className="text-xs text-gray-500">{entry.phone}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {entry.scoreA !== null ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
-                              {entry.scoreA}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {entry.scoreB !== null ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">
-                              {entry.scoreB}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="inline-flex items-center px-4 py-2 rounded-lg text-lg font-bold bg-[#072F6B]/10 text-[#072F6B] border-2 border-[#072F6B]/20">
-                              {entry.averageScore}
-                            </span>
-                            {entry.rank <= 3 && (
-                              <TrendingUp className="h-5 w-5 text-yellow-500" />
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {entry.city}, {entry.state}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {new Date(entry.submission_date).toLocaleDateString()}
-                        </td>
+                    <thead className="bg-gradient-to-r from-[#072F6B] to-[#0B1A3A] text-white">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Rank</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Student ID</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Student</th>
+                        <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">Score A</th>
+                        <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">Score B</th>
+                        <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">Average</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Submitted</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {leaderboard.map((entry) => (
+                        <tr key={entry.submission_id} className={`hover:bg-gray-50 transition-colors ${entry.rank <= 3 ? "bg-gradient-to-r from-yellow-50/30 to-transparent" : ""}`}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold text-sm ${getRankBadgeColor(entry.rank)}`}>{getRankIcon(entry.rank) || entry.rank}</div>
+                              {entry.rank <= 3 && <span className="text-xs font-semibold text-gray-600">{entry.rank === 1 ? "🥇 Gold" : entry.rank === 2 ? "🥈 Silver" : "🥉 Bronze"}</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-[#072F6B]">{formatStudentId(entry.student_id)}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-semibold text-gray-900">{entry.full_name}</div>
+                            <div className="text-xs text-gray-500">{entry.phone}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{entry.scoreA !== null ? <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">{entry.scoreA}</span> : <span className="text-xs text-gray-400">-</span>}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{entry.scoreB !== null ? <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">{entry.scoreB}</span> : <span className="text-xs text-gray-400">-</span>}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="inline-flex items-center px-4 py-2 rounded-lg text-lg font-bold bg-[#072F6B]/10 text-[#072F6B] border-2 border-[#072F6B]/20">{entry.averageScore}</span>
+                              {entry.rank <= 3 && <TrendingUp className="h-5 w-5 text-yellow-500" />}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {entry.city}, {entry.state}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(entry.submission_date).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Mobile Card View */}
                 <div className="md:hidden divide-y divide-gray-200">
                   {leaderboard.map((entry) => (
-                    <div
-                      key={entry.submission_id}
-                      className={`p-4 space-y-3 ${
-                        entry.rank <= 3 ? "bg-gradient-to-r from-yellow-50/30 to-transparent" : ""
-                      }`}
-                    >
+                    <div key={entry.submission_id} className={`p-4 space-y-3 ${entry.rank <= 3 ? "bg-gradient-to-r from-yellow-50/30 to-transparent" : ""}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold text-sm ${getRankBadgeColor(
-                              entry.rank
-                            )}`}
-                          >
-                            {getRankIcon(entry.rank) || entry.rank}
-                          </div>
+                          <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-bold text-sm ${getRankBadgeColor(entry.rank)}`}>{getRankIcon(entry.rank) || entry.rank}</div>
                           <div>
+                            <div className="text-xs font-semibold text-[#072F6B] mb-1">{formatStudentId(entry.student_id)}</div>
                             <div className="text-sm font-semibold text-gray-900">{entry.full_name}</div>
                             <div className="text-xs text-gray-500">{entry.phone}</div>
                           </div>
                         </div>
-                        {entry.rank <= 3 && (
-                          <span className="text-xs font-semibold text-gray-600">
-                            {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}
-                          </span>
-                        )}
+                        {entry.rank <= 3 && <span className="text-xs font-semibold text-gray-600">{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}</span>}
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-100">
                         <div>
                           <span className="text-gray-500">Score A:</span>
-                          <span className="ml-1 text-gray-900 font-medium">
-                            {entry.scoreA !== null ? entry.scoreA : "-"}
-                          </span>
+                          <span className="ml-1 text-gray-900 font-medium">{entry.scoreA !== null ? entry.scoreA : "-"}</span>
                         </div>
                         <div>
                           <span className="text-gray-500">Score B:</span>
-                          <span className="ml-1 text-gray-900 font-medium">
-                            {entry.scoreB !== null ? entry.scoreB : "-"}
-                          </span>
+                          <span className="ml-1 text-gray-900 font-medium">{entry.scoreB !== null ? entry.scoreB : "-"}</span>
                         </div>
                         <div className="col-span-2 flex items-center justify-between pt-2 border-t border-gray-100">
                           <span className="text-gray-500">Average:</span>
@@ -270,9 +220,7 @@ export default function AdminLeaderboard() {
                         <div className="col-span-2 text-xs text-gray-500">
                           {entry.city}, {entry.state}
                         </div>
-                        <div className="col-span-2 text-xs text-gray-500">
-                          Submitted: {new Date(entry.submission_date).toLocaleDateString()}
-                        </div>
+                        <div className="col-span-2 text-xs text-gray-500">Submitted: {new Date(entry.submission_date).toLocaleDateString()}</div>
                       </div>
                     </div>
                   ))}
@@ -287,9 +235,7 @@ export default function AdminLeaderboard() {
                   <div className="text-gray-600">
                     Total entries: <span className="font-semibold text-gray-900">{leaderboard.length}</span>
                   </div>
-                  <div className="text-gray-600">
-                    {leaderboard.filter((e) => e.hasBothScores).length} entries with both scores
-                  </div>
+                  <div className="text-gray-600">{leaderboard.filter((e) => e.hasBothScores).length} entries with both scores</div>
                 </div>
               </div>
             )}
@@ -306,6 +252,7 @@ export default function AdminLeaderboard() {
                       <Medal className="h-8 w-8 text-gray-500" />
                     </div>
                     <div className="text-2xl font-bold text-gray-700 mb-1">2nd Place</div>
+                    <div className="text-xs font-semibold text-[#072F6B] mb-1">{formatStudentId(leaderboard[1].student_id)}</div>
                     <div className="text-lg font-semibold text-gray-900 mb-2">{leaderboard[1].full_name}</div>
                     <div className="text-3xl font-bold text-[#072F6B] mb-2">{leaderboard[1].averageScore}</div>
                     <div className="text-sm text-gray-600">
@@ -323,6 +270,7 @@ export default function AdminLeaderboard() {
                       <Trophy className="h-10 w-10 text-yellow-600" />
                     </div>
                     <div className="text-2xl font-bold text-yellow-700 mb-1">1st Place</div>
+                    <div className="text-xs font-semibold text-[#072F6B] mb-1">{formatStudentId(leaderboard[0].student_id)}</div>
                     <div className="text-lg font-semibold text-gray-900 mb-2">{leaderboard[0].full_name}</div>
                     <div className="text-4xl font-bold text-[#072F6B] mb-2">{leaderboard[0].averageScore}</div>
                     <div className="text-sm text-gray-600">
@@ -340,6 +288,7 @@ export default function AdminLeaderboard() {
                       <Medal className="h-8 w-8 text-amber-600" />
                     </div>
                     <div className="text-2xl font-bold text-amber-700 mb-1">3rd Place</div>
+                    <div className="text-xs font-semibold text-[#072F6B] mb-1">{formatStudentId(leaderboard[2].student_id)}</div>
                     <div className="text-lg font-semibold text-gray-900 mb-2">{leaderboard[2].full_name}</div>
                     <div className="text-3xl font-bold text-[#072F6B] mb-2">{leaderboard[2].averageScore}</div>
                     <div className="text-sm text-gray-600">
@@ -355,4 +304,3 @@ export default function AdminLeaderboard() {
     </div>
   );
 }
-

@@ -2,20 +2,18 @@
 
 import JudgeHeader from "@/components/judge/JudgeHeader";
 import JudgeSidebar from "@/components/judge/JudgeSidebar";
-import VideoPlayer from "@/components/VideoPlayer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import VideoPlayer from "@/components/VideoPlayer";
+import { formatStudentId } from "@/lib/utils";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
 
 interface Submission {
   id: number;
   student_id: number;
   full_name: string;
-  phone: string;
-  city: string;
-  state: string;
   original_video_key: string;
   original_video_url: string;
   created_at: string;
@@ -38,7 +36,7 @@ interface JudgeScore {
 export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
   const [submission, setSubmission] = useState<Submission | null>(null);
-  const [judge, setJudge] = useState<{ id: number; username: string; fullName: string } | null>(null);
+  const [judge, setJudge] = useState<{ id: number; username: string; fullName: string; scoreType?: "A" | "B" | null; sequenceFrom?: number | null; sequenceTo?: number | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [scoreA, setScoreA] = useState("");
@@ -77,7 +75,7 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
 
         if (data.success && data.authenticated) {
           setJudge(data.judge);
-          fetchSubmission();
+          // fetchSubmission will be called in useEffect when judge is set
         } else {
           router.push("/judge/login");
         }
@@ -93,19 +91,17 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
   }, [router, submissionId]);
 
   const fetchSubmission = async () => {
-    if (!submissionId) return;
+    if (!submissionId || !judge?.id) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/judge/submissions/${submissionId}`);
+      const response = await fetch(`/api/judge/submissions/${submissionId}?judgeId=${judge.id}`);
       const data = await response.json();
 
       if (data.success && data.submission) {
         setSubmission(data.submission);
         // Fetch existing scores
-        if (judge?.id) {
-          fetchExistingScores(data.submission.id, judge.id);
-        }
+        fetchExistingScores(data.submission.id, judge.id);
       } else {
         setMessageA({ type: "error", text: data.error || "Submission not found" });
       }
@@ -122,20 +118,20 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
       // Fetch all scores for this submission (from all judges)
       const response = await fetch(`/api/judge/submissions/${submissionId}/scores`);
       const data = await response.json();
-      
+
       if (data.success) {
         // Set all scores
         setAllScoresA(data.scores.A || []);
         setAllScoresB(data.scores.B || []);
-        
+
         // Find current judge's scores
         const myScoreA = data.scores.A?.find((s: JudgeScore) => s.judge_id === judgeId);
         const myScoreB = data.scores.B?.find((s: JudgeScore) => s.judge_id === judgeId);
-        
+
         if (myScoreA) {
           setExistingScoreA(myScoreA);
           // Ensure score is converted to string properly
-          const scoreValue = typeof myScoreA.score === 'number' ? myScoreA.score : parseFloat(myScoreA.score);
+          const scoreValue = typeof myScoreA.score === "number" ? myScoreA.score : parseFloat(myScoreA.score);
           setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
           setDescriptionA(myScoreA.description || "");
           setEditingA(false); // Don't show edit mode by default
@@ -145,11 +141,11 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
           setDescriptionA("");
           setEditingA(false);
         }
-        
+
         if (myScoreB) {
           setExistingScoreB(myScoreB);
           // Ensure score is converted to string properly
-          const scoreValue = typeof myScoreB.score === 'number' ? myScoreB.score : parseFloat(myScoreB.score);
+          const scoreValue = typeof myScoreB.score === "number" ? myScoreB.score : parseFloat(myScoreB.score);
           setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
           setDescriptionB(myScoreB.description || "");
           setEditingB(false); // Don't show edit mode by default
@@ -164,6 +160,12 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
       console.error("Error fetching existing scores:", err);
     }
   };
+
+  useEffect(() => {
+    if (judge?.id && submissionId) {
+      fetchSubmission();
+    }
+  }, [judge, submissionId]);
 
   useEffect(() => {
     if (judge?.id && submission) {
@@ -269,7 +271,6 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
     }
   };
 
-
   if (checkingAuth || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
@@ -307,18 +308,19 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-6">
-            <Button 
-              onClick={() => router.push("/judge")} 
-              variant="ghost" 
-              className="mb-4 text-[#072F6B] hover:text-[#0B1A3A] hover:bg-gray-100"
-            >
+            <Button onClick={() => router.push("/judge")} variant="ghost" className="mb-4 text-[#072F6B] hover:text-[#0B1A3A] hover:bg-gray-100">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Submissions
             </Button>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Evaluate Submission</h1>
-            <p className="text-gray-600">
-              Student: <span className="font-semibold text-gray-900">{submission.full_name}</span>
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-gray-600">
+                Student ID: <span className="font-semibold text-[#072F6B]">{formatStudentId(submission.student_id)}</span>
+              </p>
+              <p className="text-gray-600">
+                Name: <span className="font-semibold text-gray-900">{submission.full_name}</span>
+              </p>
+            </div>
             {judge && (
               <p className="text-sm text-[#072F6B] mt-1">
                 Logged in as: <span className="font-semibold">{judge.fullName}</span> ({judge.username})
@@ -332,286 +334,228 @@ export default function JudgeSubmissionPage({ params }: { params: Promise<{ id: 
               <CardHeader>
                 <CardTitle>Video Submission</CardTitle>
               </CardHeader>
-              <CardContent>
-                {judge && <VideoPlayer submissionId={submission.id} studentName={submission.full_name} />}
-              </CardContent>
+              <CardContent>{judge && <VideoPlayer submissionId={submission.id} studentName={submission.full_name} />}</CardContent>
             </Card>
 
             {/* Scoring Panel - Two Separate Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Score A Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Score A</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Show all existing Score A from all judges */}
-                  {allScoresA.length > 0 && (
-                    <div className="mb-4 space-y-2">
-                      <p className="text-xs font-medium text-gray-700 mb-2">All Score A Evaluations:</p>
-                      {allScoresA.map((score) => (
-                        <div 
-                          key={score.id} 
-                          className={`p-3 rounded-lg border ${
-                            score.judge_id === judge?.id 
-                              ? "bg-blue-50 border-blue-300" 
-                              : "bg-gray-50 border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                Score: <span className="font-semibold text-[#072F6B]">{score.score}</span>
-                              </p>
-                              <p className="text-xs text-gray-600 mt-1">
-                                Judge: {score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}
-                                {score.judge_id === judge?.id && (
-                                  <span className="ml-2 text-blue-600 font-medium">(You)</span>
-                                )}
-                              </p>
+            <div className={`grid gap-6 ${judge?.scoreType ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}>
+              {/* Score A Card - Only show if judge can score A or both */}
+              {(!judge?.scoreType || judge.scoreType === "A") && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Score A</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Show all existing Score A from all judges */}
+                    {allScoresA.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        <p className="text-xs font-medium text-gray-700 mb-2">All Score A Evaluations:</p>
+                        {allScoresA.map((score) => (
+                          <div key={score.id} className={`p-3 rounded-lg border ${score.judge_id === judge?.id ? "bg-blue-50 border-blue-300" : "bg-gray-50 border-gray-200"}`}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  Score: <span className="font-semibold text-[#072F6B]">{score.score}</span>
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                  Judge: {score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}
+                                  {score.judge_id === judge?.id && <span className="ml-2 text-blue-600 font-medium">(You)</span>}
+                                </p>
+                              </div>
                             </div>
+                            {score.description && <p className="text-xs text-gray-600 mt-2">{score.description}</p>}
                           </div>
-                          {score.description && (
-                            <p className="text-xs text-gray-600 mt-2">{score.description}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Show current judge's existing score if any */}
-                  {existingScoreA && !editingA && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-xs text-blue-600 mb-1 font-medium">Your Score A:</p>
-                          <p className="text-sm text-gray-900">
-                            Score: <span className="font-semibold text-[#072F6B]">{existingScoreA.score}</span>
-                          </p>
-                          {existingScoreA.description && <p className="text-xs text-gray-600 mt-1">{existingScoreA.description}</p>}
-                        </div>
-                        <Button
-                          onClick={() => {
-                            setEditingA(true);
-                            const scoreValue = typeof existingScoreA.score === 'number' ? existingScoreA.score : parseFloat(existingScoreA.score);
-                            setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
-                            setDescriptionA(existingScoreA.description || "");
-                            setMessageA(null); // Clear any previous messages
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="ml-2 text-[#072F6B] border-[#072F6B] hover:bg-[#072F6B] hover:text-white"
-                        >
-                          Edit
-                        </Button>
+                        ))}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Show form when editing or when no score exists */}
-                  {(editingA || !existingScoreA) && (
-                    <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Score A (out of 10) *</label>
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        min="0" 
-                        max="10" 
-                        value={scoreA} 
-                        onChange={(e) => setScoreA(e.target.value)} 
-                        placeholder="Enter score (0-10)" 
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-                      <textarea 
-                        value={descriptionA} 
-                        onChange={(e) => setDescriptionA(e.target.value)} 
-                        placeholder="Add description or comments..." 
-                        rows={3} 
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent resize-none" 
-                      />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Message A */}
-                  {messageA && (
-                    <div className={`mt-4 p-3 rounded-lg ${messageA.type === "success" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-                      <p className={`text-sm ${messageA.type === "success" ? "text-green-800" : "text-red-800"}`}>{messageA.text}</p>
-                    </div>
-                  )}
-
-                  {/* Submit/Cancel Buttons A */}
-                  {(editingA || !existingScoreA) && (
-                    <div className="flex gap-2 mt-4">
-                      <Button 
-                        onClick={handleSubmitScoreA} 
-                        disabled={!scoreA || submittingA} 
-                        className="flex-1 bg-[#072F6B] hover:bg-[#0B1A3A] text-white"
-                      >
-                        {submittingA ? "Submitting..." : existingScoreA ? "Update Score A" : "Submit Score A"}
-                      </Button>
-                      {editingA && existingScoreA && (
-                        <Button 
-                          onClick={() => {
-                            setEditingA(false);
-                            if (existingScoreA) {
-                              const scoreValue = typeof existingScoreA.score === 'number' ? existingScoreA.score : parseFloat(existingScoreA.score);
+                    {/* Show current judge's existing score if any */}
+                    {existingScoreA && !editingA && (
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-xs text-blue-600 mb-1 font-medium">Your Score A:</p>
+                            <p className="text-sm text-gray-900">
+                              Score: <span className="font-semibold text-[#072F6B]">{existingScoreA.score}</span>
+                            </p>
+                            {existingScoreA.description && <p className="text-xs text-gray-600 mt-1">{existingScoreA.description}</p>}
+                          </div>
+                          <Button
+                            onClick={() => {
+                              setEditingA(true);
+                              const scoreValue = typeof existingScoreA.score === "number" ? existingScoreA.score : parseFloat(existingScoreA.score);
                               setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
                               setDescriptionA(existingScoreA.description || "");
-                            }
-                            setMessageA(null);
-                          }}
-                          variant="outline"
-                          className="border-gray-300"
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                              setMessageA(null); // Clear any previous messages
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="ml-2 text-[#072F6B] border-[#072F6B] hover:bg-[#072F6B] hover:text-white"
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
-              {/* Score B Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Score B</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Show all existing Score B from all judges */}
-                  {allScoresB.length > 0 && (
-                    <div className="mb-4 space-y-2">
-                      <p className="text-xs font-medium text-gray-700 mb-2">All Score B Evaluations:</p>
-                      {allScoresB.map((score) => (
-                        <div 
-                          key={score.id} 
-                          className={`p-3 rounded-lg border ${
-                            score.judge_id === judge?.id 
-                              ? "bg-green-50 border-green-300" 
-                              : "bg-gray-50 border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                Score: <span className="font-semibold text-[#072F6B]">{score.score}</span>
-                              </p>
-                              <p className="text-xs text-gray-600 mt-1">
-                                Judge: {score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}
-                                {score.judge_id === judge?.id && (
-                                  <span className="ml-2 text-green-600 font-medium">(You)</span>
-                                )}
-                              </p>
+                    {/* Show form when editing or when no score exists */}
+                    {(editingA || !existingScoreA) && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Score A (out of 10) *</label>
+                          <input type="number" step="0.01" min="0" max="10" value={scoreA} onChange={(e) => setScoreA(e.target.value)} placeholder="Enter score (0-10)" className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                          <textarea value={descriptionA} onChange={(e) => setDescriptionA(e.target.value)} placeholder="Add description or comments..." rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent resize-none" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Message A */}
+                    {messageA && (
+                      <div className={`mt-4 p-3 rounded-lg ${messageA.type === "success" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                        <p className={`text-sm ${messageA.type === "success" ? "text-green-800" : "text-red-800"}`}>{messageA.text}</p>
+                      </div>
+                    )}
+
+                    {/* Submit/Cancel Buttons A */}
+                    {(editingA || !existingScoreA) && (
+                      <div className="flex gap-2 mt-4">
+                        <Button onClick={handleSubmitScoreA} disabled={!scoreA || submittingA} className="flex-1 bg-[#072F6B] hover:bg-[#0B1A3A] text-white">
+                          {submittingA ? "Submitting..." : existingScoreA ? "Update Score A" : "Submit Score A"}
+                        </Button>
+                        {editingA && existingScoreA && (
+                          <Button
+                            onClick={() => {
+                              setEditingA(false);
+                              if (existingScoreA) {
+                                const scoreValue = typeof existingScoreA.score === "number" ? existingScoreA.score : parseFloat(existingScoreA.score);
+                                setScoreA(isNaN(scoreValue) ? "" : scoreValue.toString());
+                                setDescriptionA(existingScoreA.description || "");
+                              }
+                              setMessageA(null);
+                            }}
+                            variant="outline"
+                            className="border-gray-300"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Score B Card - Only show if judge can score B or both */}
+              {(!judge?.scoreType || judge.scoreType === "B") && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Score B</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Show all existing Score B from all judges */}
+                    {allScoresB.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        <p className="text-xs font-medium text-gray-700 mb-2">All Score B Evaluations:</p>
+                        {allScoresB.map((score) => (
+                          <div key={score.id} className={`p-3 rounded-lg border ${score.judge_id === judge?.id ? "bg-green-50 border-green-300" : "bg-gray-50 border-gray-200"}`}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  Score: <span className="font-semibold text-[#072F6B]">{score.score}</span>
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                  Judge: {score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}
+                                  {score.judge_id === judge?.id && <span className="ml-2 text-green-600 font-medium">(You)</span>}
+                                </p>
+                              </div>
                             </div>
+                            {score.description && <p className="text-xs text-gray-600 mt-2">{score.description}</p>}
                           </div>
-                          {score.description && (
-                            <p className="text-xs text-gray-600 mt-2">{score.description}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Show current judge's existing score if any */}
-                  {existingScoreB && !editingB && (
-                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-xs text-green-600 mb-1 font-medium">Your Score B:</p>
-                          <p className="text-sm text-gray-900">
-                            Score: <span className="font-semibold text-[#072F6B]">{existingScoreB.score}</span>
-                          </p>
-                          {existingScoreB.description && <p className="text-xs text-gray-600 mt-1">{existingScoreB.description}</p>}
-                        </div>
-                        <Button
-                          onClick={() => {
-                            setEditingB(true);
-                            const scoreValue = typeof existingScoreB.score === 'number' ? existingScoreB.score : parseFloat(existingScoreB.score);
-                            setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
-                            setDescriptionB(existingScoreB.description || "");
-                            setMessageB(null); // Clear any previous messages
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="ml-2 text-[#072F6B] border-[#072F6B] hover:bg-[#072F6B] hover:text-white"
-                        >
-                          Edit
-                        </Button>
+                        ))}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Show form when editing or when no score exists */}
-                  {(editingB || !existingScoreB) && (
-                    <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Score B (out of 10) *</label>
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        min="0" 
-                        max="10" 
-                        value={scoreB} 
-                        onChange={(e) => setScoreB(e.target.value)} 
-                        placeholder="Enter score (0-10)" 
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-                      <textarea 
-                        value={descriptionB} 
-                        onChange={(e) => setDescriptionB(e.target.value)} 
-                        placeholder="Add description or comments..." 
-                        rows={3} 
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent resize-none" 
-                      />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Message B */}
-                  {messageB && (
-                    <div className={`mt-4 p-3 rounded-lg ${messageB.type === "success" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-                      <p className={`text-sm ${messageB.type === "success" ? "text-green-800" : "text-red-800"}`}>{messageB.text}</p>
-                    </div>
-                  )}
-
-                  {/* Submit/Cancel Buttons B */}
-                  {(editingB || !existingScoreB) && (
-                    <div className="flex gap-2 mt-4">
-                      <Button 
-                        onClick={handleSubmitScoreB} 
-                        disabled={!scoreB || submittingB} 
-                        className="flex-1 bg-[#072F6B] hover:bg-[#0B1A3A] text-white"
-                      >
-                        {submittingB ? "Submitting..." : existingScoreB ? "Update Score B" : "Submit Score B"}
-                      </Button>
-                      {editingB && existingScoreB && (
-                        <Button 
-                          onClick={() => {
-                            setEditingB(false);
-                            if (existingScoreB) {
-                              const scoreValue = typeof existingScoreB.score === 'number' ? existingScoreB.score : parseFloat(existingScoreB.score);
+                    {/* Show current judge's existing score if any */}
+                    {existingScoreB && !editingB && (
+                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-xs text-green-600 mb-1 font-medium">Your Score B:</p>
+                            <p className="text-sm text-gray-900">
+                              Score: <span className="font-semibold text-[#072F6B]">{existingScoreB.score}</span>
+                            </p>
+                            {existingScoreB.description && <p className="text-xs text-gray-600 mt-1">{existingScoreB.description}</p>}
+                          </div>
+                          <Button
+                            onClick={() => {
+                              setEditingB(true);
+                              const scoreValue = typeof existingScoreB.score === "number" ? existingScoreB.score : parseFloat(existingScoreB.score);
                               setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
                               setDescriptionB(existingScoreB.description || "");
-                            }
-                            setMessageB(null);
-                          }}
-                          variant="outline"
-                          className="border-gray-300"
-                        >
-                          Cancel
+                              setMessageB(null); // Clear any previous messages
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="ml-2 text-[#072F6B] border-[#072F6B] hover:bg-[#072F6B] hover:text-white"
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show form when editing or when no score exists */}
+                    {(editingB || !existingScoreB) && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Score B (out of 10) *</label>
+                          <input type="number" step="0.01" min="0" max="10" value={scoreB} onChange={(e) => setScoreB(e.target.value)} placeholder="Enter score (0-10)" className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                          <textarea value={descriptionB} onChange={(e) => setDescriptionB(e.target.value)} placeholder="Add description or comments..." rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent resize-none" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Message B */}
+                    {messageB && (
+                      <div className={`mt-4 p-3 rounded-lg ${messageB.type === "success" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                        <p className={`text-sm ${messageB.type === "success" ? "text-green-800" : "text-red-800"}`}>{messageB.text}</p>
+                      </div>
+                    )}
+
+                    {/* Submit/Cancel Buttons B */}
+                    {(editingB || !existingScoreB) && (
+                      <div className="flex gap-2 mt-4">
+                        <Button onClick={handleSubmitScoreB} disabled={!scoreB || submittingB} className="flex-1 bg-[#072F6B] hover:bg-[#0B1A3A] text-white">
+                          {submittingB ? "Submitting..." : existingScoreB ? "Update Score B" : "Submit Score B"}
                         </Button>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        {editingB && existingScoreB && (
+                          <Button
+                            onClick={() => {
+                              setEditingB(false);
+                              if (existingScoreB) {
+                                const scoreValue = typeof existingScoreB.score === "number" ? existingScoreB.score : parseFloat(existingScoreB.score);
+                                setScoreB(isNaN(scoreValue) ? "" : scoreValue.toString());
+                                setDescriptionB(existingScoreB.description || "");
+                              }
+                              setMessageB(null);
+                            }}
+                            variant="outline"
+                            className="border-gray-300"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

@@ -103,13 +103,67 @@ export async function initializeDatabase(): Promise<void> {
         password_hash VARCHAR(255) NOT NULL,
         full_name VARCHAR(255) NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
+        score_type ENUM('A', 'B') DEFAULT NULL,
+        sequence_from INT DEFAULT NULL,
+        sequence_to INT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_username (username),
-        INDEX idx_is_active (is_active)
+        INDEX idx_is_active (is_active),
+        INDEX idx_score_type (score_type),
+        INDEX idx_sequence (sequence_from, sequence_to)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
     console.log("Judges table created or already exists");
+
+    // Add new columns if they don't exist (for existing databases)
+    try {
+      // Check if columns exist first
+      const [columns] = (await connection.execute(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+         WHERE TABLE_SCHEMA = DATABASE() 
+         AND TABLE_NAME = 'judges' 
+         AND COLUMN_NAME IN ('score_type', 'sequence_from', 'sequence_to')`
+      )) as any[];
+
+      const existingColumns = columns.map((col: any) => col.COLUMN_NAME);
+
+      if (!existingColumns.includes("score_type")) {
+        await connection.execute(`ALTER TABLE judges ADD COLUMN score_type ENUM('A', 'B') DEFAULT NULL`);
+        console.log("Added score_type column to judges table");
+      }
+
+      if (!existingColumns.includes("sequence_from")) {
+        await connection.execute(`ALTER TABLE judges ADD COLUMN sequence_from INT DEFAULT NULL`);
+        console.log("Added sequence_from column to judges table");
+      }
+
+      if (!existingColumns.includes("sequence_to")) {
+        await connection.execute(`ALTER TABLE judges ADD COLUMN sequence_to INT DEFAULT NULL`);
+        console.log("Added sequence_to column to judges table");
+      }
+
+      // Add indexes if columns were added
+      if (!existingColumns.includes("score_type") || !existingColumns.includes("sequence_from")) {
+        try {
+          await connection.execute(`ALTER TABLE judges ADD INDEX idx_score_type (score_type)`);
+        } catch (e: any) {
+          if (!e.message?.includes("Duplicate key")) {
+            console.log("Note: Index may already exist");
+          }
+        }
+
+        try {
+          await connection.execute(`ALTER TABLE judges ADD INDEX idx_sequence (sequence_from, sequence_to)`);
+        } catch (e: any) {
+          if (!e.message?.includes("Duplicate key")) {
+            console.log("Note: Index may already exist");
+          }
+        }
+      }
+    } catch (error: any) {
+      console.log("Note: Columns may already exist in judges table or error adding columns:", error.message);
+    }
 
     // Create judge_scores table
     await connection.execute(`

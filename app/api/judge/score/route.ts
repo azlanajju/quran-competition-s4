@@ -82,12 +82,25 @@ export async function POST(request: NextRequest) {
     const connection = await pool.getConnection();
 
     try {
-      // Get judge name for the score record
-      const [judges] = (await connection.execute(`SELECT username, full_name FROM judges WHERE id = ?`, [parseInt(judgeId)])) as any[];
+      // Get judge information including score_type restriction
+      const [judges] = (await connection.execute(
+        `SELECT username, full_name, score_type FROM judges WHERE id = ?`,
+        [parseInt(judgeId)]
+      )) as any[];
       if (judges.length === 0) {
         return NextResponse.json({ success: false, error: "Judge not found" }, { status: 404 });
       }
-      const judgeName = judges[0].full_name || judges[0].username;
+      const judge = judges[0];
+      const judgeName = judge.full_name || judge.username;
+      const judgeScoreType = judge.score_type;
+
+      // Validate that judge can only score their assigned type
+      if (judgeScoreType && judgeScoreType !== scoreType) {
+        return NextResponse.json({
+          success: false,
+          error: `This judge can only evaluate Score ${judgeScoreType}. You are attempting to submit Score ${scoreType}.`,
+        }, { status: 403 });
+      }
 
       // Check if score already exists for this judge, submission, AND score_type (A and B are independent)
       const [existing] = (await connection.execute(

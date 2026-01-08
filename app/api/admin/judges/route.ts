@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const [judges] = (await connection.execute(
-        `SELECT id, username, full_name, is_active, created_at, updated_at 
+        `SELECT id, username, full_name, is_active, score_type, sequence_from, sequence_to, created_at, updated_at 
          FROM judges 
          ORDER BY created_at DESC`
       )) as any[];
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, password, fullName } = body;
+    const { username, password, fullName, scoreType, sequenceFrom, sequenceTo } = body;
 
     if (!username || !password || !fullName) {
       return NextResponse.json({ success: false, error: "Username, password, and full name are required" }, { status: 400 });
@@ -40,6 +40,33 @@ export async function POST(request: NextRequest) {
 
     if (password.length < 6) {
       return NextResponse.json({ success: false, error: "Password must be at least 6 characters long" }, { status: 400 });
+    }
+
+    // Validate scoreType
+    if (scoreType && !["A", "B"].includes(scoreType)) {
+      return NextResponse.json({ success: false, error: "scoreType must be either 'A' or 'B'" }, { status: 400 });
+    }
+
+    // Validate sequence range
+    if (sequenceFrom !== undefined && sequenceFrom !== null) {
+      const from = parseInt(sequenceFrom);
+      if (isNaN(from) || from < 1) {
+        return NextResponse.json({ success: false, error: "sequenceFrom must be a positive integer" }, { status: 400 });
+      }
+    }
+
+    if (sequenceTo !== undefined && sequenceTo !== null) {
+      const to = parseInt(sequenceTo);
+      if (isNaN(to) || to < 1) {
+        return NextResponse.json({ success: false, error: "sequenceTo must be a positive integer" }, { status: 400 });
+      }
+    }
+
+    // Validate sequence range logic
+    if (sequenceFrom !== undefined && sequenceFrom !== null && sequenceTo !== undefined && sequenceTo !== null) {
+      if (parseInt(sequenceFrom) > parseInt(sequenceTo)) {
+        return NextResponse.json({ success: false, error: "sequenceFrom must be less than or equal to sequenceTo" }, { status: 400 });
+      }
     }
 
     const pool = getPool();
@@ -57,10 +84,18 @@ export async function POST(request: NextRequest) {
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
 
-      // Insert judge
+      // Insert judge with new fields
       await connection.execute(
-        `INSERT INTO judges (username, password_hash, full_name) VALUES (?, ?, ?)`,
-        [username, passwordHash, fullName]
+        `INSERT INTO judges (username, password_hash, full_name, score_type, sequence_from, sequence_to) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          username,
+          passwordHash,
+          fullName,
+          scoreType || null,
+          sequenceFrom ? parseInt(sequenceFrom) : null,
+          sequenceTo ? parseInt(sequenceTo) : null,
+        ]
       );
 
       return NextResponse.json({
@@ -85,10 +120,37 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, username, password, fullName, isActive } = body;
+    const { id, username, password, fullName, isActive, scoreType, sequenceFrom, sequenceTo } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Judge ID is required" }, { status: 400 });
+    }
+
+    // Validate scoreType
+    if (scoreType !== undefined && scoreType !== null && !["A", "B"].includes(scoreType)) {
+      return NextResponse.json({ success: false, error: "scoreType must be either 'A' or 'B'" }, { status: 400 });
+    }
+
+    // Validate sequence range
+    if (sequenceFrom !== undefined && sequenceFrom !== null) {
+      const from = parseInt(sequenceFrom);
+      if (isNaN(from) || from < 1) {
+        return NextResponse.json({ success: false, error: "sequenceFrom must be a positive integer" }, { status: 400 });
+      }
+    }
+
+    if (sequenceTo !== undefined && sequenceTo !== null) {
+      const to = parseInt(sequenceTo);
+      if (isNaN(to) || to < 1) {
+        return NextResponse.json({ success: false, error: "sequenceTo must be a positive integer" }, { status: 400 });
+      }
+    }
+
+    // Validate sequence range logic
+    if (sequenceFrom !== undefined && sequenceFrom !== null && sequenceTo !== undefined && sequenceTo !== null) {
+      if (parseInt(sequenceFrom) > parseInt(sequenceTo)) {
+        return NextResponse.json({ success: false, error: "sequenceFrom must be less than or equal to sequenceTo" }, { status: 400 });
+      }
     }
 
     const pool = getPool();
@@ -134,6 +196,21 @@ export async function PUT(request: NextRequest) {
       if (isActive !== undefined) {
         updates.push("is_active = ?");
         values.push(isActive);
+      }
+
+      if (scoreType !== undefined) {
+        updates.push("score_type = ?");
+        values.push(scoreType || null);
+      }
+
+      if (sequenceFrom !== undefined) {
+        updates.push("sequence_from = ?");
+        values.push(sequenceFrom ? parseInt(sequenceFrom) : null);
+      }
+
+      if (sequenceTo !== undefined) {
+        updates.push("sequence_to = ?");
+        values.push(sequenceTo ? parseInt(sequenceTo) : null);
       }
 
       if (updates.length === 0) {

@@ -2,13 +2,14 @@
 
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import VideoPlayer from "@/components/VideoPlayer";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import VideoPlayer from "@/components/VideoPlayer";
+import { formatStudentId } from "@/lib/utils";
+import { ArrowLeft, Award, Calendar, TrendingUp, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Award, TrendingUp, Calendar, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Score {
   id: number;
@@ -124,36 +125,36 @@ export default function AdminSubmissions() {
       // Fetch all scores for this submission
       const response = await fetch(`/api/judge/submissions/${submission.id}/scores`);
       const data = await response.json();
-      
+
       if (data.success) {
         // Get latest scores of each type
         const latestScoreA = data.scores.A && data.scores.A.length > 0 ? data.scores.A[0] : null;
         const latestScoreB = data.scores.B && data.scores.B.length > 0 ? data.scores.B[0] : null;
-        
+
         // Calculate average - use both scores if available, otherwise use single score
         let averageScore = null;
         if (latestScoreA && latestScoreB) {
-          const scoreAValue = typeof latestScoreA.score === 'string' ? parseFloat(latestScoreA.score) : latestScoreA.score;
-          const scoreBValue = typeof latestScoreB.score === 'string' ? parseFloat(latestScoreB.score) : latestScoreB.score;
+          const scoreAValue = typeof latestScoreA.score === "string" ? parseFloat(latestScoreA.score) : latestScoreA.score;
+          const scoreBValue = typeof latestScoreB.score === "string" ? parseFloat(latestScoreB.score) : latestScoreB.score;
           if (!isNaN(scoreAValue) && !isNaN(scoreBValue)) {
             const avg = (scoreAValue + scoreBValue) / 2;
             averageScore = avg % 1 === 0 ? avg.toString() : avg.toFixed(2);
           }
         } else if (latestScoreA) {
-          const scoreAValue = typeof latestScoreA.score === 'string' ? parseFloat(latestScoreA.score) : latestScoreA.score;
+          const scoreAValue = typeof latestScoreA.score === "string" ? parseFloat(latestScoreA.score) : latestScoreA.score;
           if (!isNaN(scoreAValue)) {
             averageScore = scoreAValue % 1 === 0 ? scoreAValue.toString() : scoreAValue.toFixed(2);
           }
         } else if (latestScoreB) {
-          const scoreBValue = typeof latestScoreB.score === 'string' ? parseFloat(latestScoreB.score) : latestScoreB.score;
+          const scoreBValue = typeof latestScoreB.score === "string" ? parseFloat(latestScoreB.score) : latestScoreB.score;
           if (!isNaN(scoreBValue)) {
             averageScore = scoreBValue % 1 === 0 ? scoreBValue.toString() : scoreBValue.toFixed(2);
           }
         }
-        
+
         // Calculate total scores count
         const totalScoresCount = (data.scores.A?.length || 0) + (data.scores.B?.length || 0);
-        
+
         // Update submission with all scores and recalculated average
         const updatedSubmission = {
           ...submission,
@@ -187,7 +188,7 @@ export default function AdminSubmissions() {
 
   const openVideo = async (submissionId: number, studentName: string) => {
     setIsLoadingVideo(true);
-    
+
     // Fetch video URL and open popup immediately
     try {
       const response = await fetch(`/api/video/signed-url?submissionId=${submissionId}&type=original`);
@@ -203,7 +204,6 @@ export default function AdminSubmissions() {
       setIsLoadingVideo(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
@@ -277,13 +277,7 @@ export default function AdminSubmissions() {
                       className="flex-1 px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
                     />
                     {(dateFrom || dateTo) && (
-                      <Button
-                        onClick={clearDateFilters}
-                        variant="outline"
-                        size="sm"
-                        className="px-3"
-                        title="Clear date filters"
-                      >
+                      <Button onClick={clearDateFilters} variant="outline" size="sm" className="px-3" title="Clear date filters">
                         <X className="h-4 w-4" />
                       </Button>
                     )}
@@ -304,134 +298,114 @@ export default function AdminSubmissions() {
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Resolution</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Scores</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Submitted</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {submissions.map((submission) => (
-                      <tr key={submission.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">{submission.full_name}</div>
-                          <div className="text-sm text-gray-600">{submission.phone}</div>
-                          <div className="text-xs text-gray-500">
-                            {submission.city}, {submission.state}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{submission.video_resolution}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            submission.processing_status === "completed" 
-                              ? "bg-green-100 text-green-800" 
-                              : submission.processing_status === "failed" 
-                              ? "bg-red-100 text-red-800" 
-                              : submission.processing_status === "processing" 
-                              ? "bg-yellow-100 text-yellow-800" 
-                              : "bg-gray-100 text-gray-800"
-                          }`}>
-                            {submission.processing_status}
-                          </span>
-                          {submission.processing_error && (
-                            <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={submission.processing_error}>
-                              {submission.processing_error}
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Resolution</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Scores</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Submitted</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {submissions.map((submission) => (
+                        <tr key={submission.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-[#072F6B]">{formatStudentId(submission.student_id)}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-900">{submission.full_name}</div>
+                            <div className="text-sm text-gray-600">{submission.phone}</div>
+                            <div className="text-xs text-gray-500">
+                              {submission.city}, {submission.state}
                             </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {submission.scores && submission.scores.totalScores > 0 ? (
-                            <div className="space-y-2 min-w-[200px]">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {submission.scores.scoreA && (
-                                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-lg border border-blue-200">
-                                    <span className="text-xs font-semibold text-blue-700">A:</span>
-                                    <span className="text-sm font-bold text-[#072F6B]">
-                                      {(() => {
-                                        const scoreValue = typeof submission.scores.scoreA.score === 'number' 
-                                          ? submission.scores.scoreA.score 
-                                          : parseFloat(submission.scores.scoreA.score);
-                                        if (isNaN(scoreValue)) return submission.scores.scoreA.score;
-                                        return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
-                                      })()}
-                                    </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{submission.video_resolution}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${submission.processing_status === "completed" ? "bg-green-100 text-green-800" : submission.processing_status === "failed" ? "bg-red-100 text-red-800" : submission.processing_status === "processing" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800"}`}>{submission.processing_status}</span>
+                            {submission.processing_error && (
+                              <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={submission.processing_error}>
+                                {submission.processing_error}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {submission.scores && submission.scores.totalScores > 0 ? (
+                              <div className="space-y-2 min-w-[200px]">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {submission.scores.scoreA && (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-lg border border-blue-200">
+                                      <span className="text-xs font-semibold text-blue-700">A:</span>
+                                      <span className="text-sm font-bold text-[#072F6B]">
+                                        {(() => {
+                                          const scoreValue = typeof submission.scores.scoreA.score === "number" ? submission.scores.scoreA.score : parseFloat(submission.scores.scoreA.score);
+                                          if (isNaN(scoreValue)) return submission.scores.scoreA.score;
+                                          return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
+                                        })()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {submission.scores.scoreB && (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200">
+                                      <span className="text-xs font-semibold text-purple-700">B:</span>
+                                      <span className="text-sm font-bold text-[#072F6B]">
+                                        {(() => {
+                                          const scoreValue = typeof submission.scores.scoreB.score === "number" ? submission.scores.scoreB.score : parseFloat(submission.scores.scoreB.score);
+                                          if (isNaN(scoreValue)) return submission.scores.scoreB.score;
+                                          return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
+                                        })()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {submission.scores.average && !isNaN(parseFloat(submission.scores.average)) && (
+                                  <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#072F6B]/10 rounded-lg border border-[#072F6B]/20">
+                                    <TrendingUp className="h-4 w-4 text-[#072F6B]" />
+                                    <span className="text-xs font-medium text-gray-700">Avg:</span>
+                                    <span className="text-sm font-bold text-[#072F6B]">{submission.scores.average}</span>
                                   </div>
                                 )}
-                                {submission.scores.scoreB && (
-                                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200">
-                                    <span className="text-xs font-semibold text-purple-700">B:</span>
-                                    <span className="text-sm font-bold text-[#072F6B]">
-                                      {(() => {
-                                        const scoreValue = typeof submission.scores.scoreB.score === 'number' 
-                                          ? submission.scores.scoreB.score 
-                                          : parseFloat(submission.scores.scoreB.score);
-                                        if (isNaN(scoreValue)) return submission.scores.scoreB.score;
-                                        return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
-                                      })()}
-                                    </span>
+                                {(submission.scores.scoreA?.judge_full_name || submission.scores.scoreB?.judge_full_name) && (
+                                  <div className="text-xs text-gray-500 space-y-0.5">
+                                    {submission.scores.scoreA?.judge_full_name && (
+                                      <div className="truncate" title={submission.scores.scoreA.judge_full_name}>
+                                        A: {submission.scores.scoreA.judge_full_name}
+                                      </div>
+                                    )}
+                                    {submission.scores.scoreB?.judge_full_name && (
+                                      <div className="truncate" title={submission.scores.scoreB.judge_full_name}>
+                                        B: {submission.scores.scoreB.judge_full_name}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
-                              {submission.scores.average && !isNaN(parseFloat(submission.scores.average)) && (
-                                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#072F6B]/10 rounded-lg border border-[#072F6B]/20">
-                                  <TrendingUp className="h-4 w-4 text-[#072F6B]" />
-                                  <span className="text-xs font-medium text-gray-700">Avg:</span>
-                                  <span className="text-sm font-bold text-[#072F6B]">{submission.scores.average}</span>
-                                </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">No scores yet</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(submission.created_at).toLocaleString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <div className="flex flex-col gap-2">
+                              {submission.processing_status === "completed" && (
+                                <Button onClick={() => openVideo(submission.id, submission.full_name)} size="sm" className="bg-[#072F6B] hover:bg-[#0B1A3A] text-white">
+                                  View Video
+                                </Button>
                               )}
-                              {(submission.scores.scoreA?.judge_full_name || submission.scores.scoreB?.judge_full_name) && (
-                                <div className="text-xs text-gray-500 space-y-0.5">
-                                  {submission.scores.scoreA?.judge_full_name && (
-                                    <div className="truncate" title={submission.scores.scoreA.judge_full_name}>
-                                      A: {submission.scores.scoreA.judge_full_name}
-                                    </div>
-                                  )}
-                                  {submission.scores.scoreB?.judge_full_name && (
-                                    <div className="truncate" title={submission.scores.scoreB.judge_full_name}>
-                                      B: {submission.scores.scoreB.judge_full_name}
-                                    </div>
-                                  )}
-                                </div>
+                              {submission.scores && submission.scores.totalScores > 0 && (
+                                <Button onClick={() => viewScores(submission)} size="sm" variant="outline" className="gap-1.5" disabled={loadingScores}>
+                                  <Award className="h-3.5 w-3.5" />
+                                  View Scores
+                                </Button>
                               )}
                             </div>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">No scores yet</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(submission.created_at).toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex flex-col gap-2">
-                            {submission.processing_status === "completed" && (
-                              <Button 
-                                onClick={() => openVideo(submission.id, submission.full_name)} 
-                                size="sm"
-                                className="bg-[#072F6B] hover:bg-[#0B1A3A] text-white"
-                              >
-                                View Video
-                              </Button>
-                            )}
-                            {submission.scores && submission.scores.totalScores > 0 && (
-                              <Button 
-                                onClick={() => viewScores(submission)} 
-                                size="sm"
-                                variant="outline"
-                                className="gap-1.5"
-                                disabled={loadingScores}
-                              >
-                                <Award className="h-3.5 w-3.5" />
-                                View Scores
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Mobile Card View */}
@@ -440,25 +414,16 @@ export default function AdminSubmissions() {
                     <div key={submission.id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
+                          <div className="text-xs font-semibold text-[#072F6B] mb-1">{formatStudentId(submission.student_id)}</div>
                           <div className="text-sm font-semibold text-gray-900">{submission.full_name}</div>
                           <div className="text-xs text-gray-600 mt-1">{submission.phone}</div>
                           <div className="text-xs text-gray-500 mt-1">
                             {submission.city}, {submission.state}
                           </div>
                         </div>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
-                          submission.processing_status === "completed" 
-                            ? "bg-green-100 text-green-800" 
-                            : submission.processing_status === "failed" 
-                            ? "bg-red-100 text-red-800" 
-                            : submission.processing_status === "processing" 
-                            ? "bg-yellow-100 text-yellow-800" 
-                            : "bg-gray-100 text-gray-800"
-                        }`}>
-                          {submission.processing_status}
-                        </span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${submission.processing_status === "completed" ? "bg-green-100 text-green-800" : submission.processing_status === "failed" ? "bg-red-100 text-red-800" : submission.processing_status === "processing" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800"}`}>{submission.processing_status}</span>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
                           <span className="text-gray-500">Resolution:</span>
@@ -478,9 +443,7 @@ export default function AdminSubmissions() {
                                 <span className="text-xs font-semibold text-blue-700">A:</span>
                                 <span className="text-sm font-bold text-[#072F6B]">
                                   {(() => {
-                                    const scoreValue = typeof submission.scores.scoreA.score === 'number' 
-                                      ? submission.scores.scoreA.score 
-                                      : parseFloat(submission.scores.scoreA.score);
+                                    const scoreValue = typeof submission.scores.scoreA.score === "number" ? submission.scores.scoreA.score : parseFloat(submission.scores.scoreA.score);
                                     if (isNaN(scoreValue)) return submission.scores.scoreA.score;
                                     return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
                                   })()}
@@ -492,9 +455,7 @@ export default function AdminSubmissions() {
                                 <span className="text-xs font-semibold text-purple-700">B:</span>
                                 <span className="text-sm font-bold text-[#072F6B]">
                                   {(() => {
-                                    const scoreValue = typeof submission.scores.scoreB.score === 'number' 
-                                      ? submission.scores.scoreB.score 
-                                      : parseFloat(submission.scores.scoreB.score);
+                                    const scoreValue = typeof submission.scores.scoreB.score === "number" ? submission.scores.scoreB.score : parseFloat(submission.scores.scoreB.score);
                                     if (isNaN(scoreValue)) return submission.scores.scoreB.score;
                                     return scoreValue % 1 === 0 ? scoreValue : scoreValue.toFixed(1);
                                   })()}
@@ -514,22 +475,12 @@ export default function AdminSubmissions() {
 
                       <div className="flex flex-col gap-2 pt-2">
                         {submission.processing_status === "completed" && (
-                          <Button 
-                            onClick={() => openVideo(submission.id, submission.full_name)} 
-                            size="sm"
-                            className="w-full bg-[#072F6B] hover:bg-[#0B1A3A] text-white"
-                          >
+                          <Button onClick={() => openVideo(submission.id, submission.full_name)} size="sm" className="w-full bg-[#072F6B] hover:bg-[#0B1A3A] text-white">
                             View Video
                           </Button>
                         )}
                         {submission.scores && submission.scores.totalScores > 0 && (
-                          <Button 
-                            onClick={() => viewScores(submission)} 
-                            size="sm"
-                            variant="outline"
-                            className="w-full gap-1.5"
-                            disabled={loadingScores}
-                          >
+                          <Button onClick={() => viewScores(submission)} size="sm" variant="outline" className="w-full gap-1.5" disabled={loadingScores}>
                             <Award className="h-3.5 w-3.5" />
                             View Scores
                           </Button>
@@ -548,23 +499,13 @@ export default function AdminSubmissions() {
               </div>
               {totalPages > 1 && (
                 <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => setPage(1)}
-                    disabled={page === 1}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={() => setPage(1)} disabled={page === 1} variant="outline" size="sm">
                     First
                   </Button>
-                  <Button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} variant="outline" size="sm">
                     Previous
                   </Button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -578,35 +519,19 @@ export default function AdminSubmissions() {
                       } else {
                         pageNum = page - 2 + i;
                       }
-                      
+
                       return (
-                        <Button
-                          key={pageNum}
-                          onClick={() => setPage(pageNum)}
-                          variant={page === pageNum ? "default" : "outline"}
-                          size="sm"
-                          className={page === pageNum ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}
-                        >
+                        <Button key={pageNum} onClick={() => setPage(pageNum)} variant={page === pageNum ? "default" : "outline"} size="sm" className={page === pageNum ? "bg-[#072F6B] hover:bg-[#0B1A3A] text-white" : ""}>
                           {pageNum}
                         </Button>
                       );
                     })}
                   </div>
-                  
-                  <Button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
+
+                  <Button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="outline" size="sm">
                     Next
                   </Button>
-                  <Button
-                    onClick={() => setPage(totalPages)}
-                    disabled={page === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={() => setPage(totalPages)} disabled={page === totalPages} variant="outline" size="sm">
                     Last
                   </Button>
                 </div>
@@ -649,14 +574,14 @@ export default function AdminSubmissions() {
 
       {/* Video Player Modal */}
       {selectedVideo && (
-        <VideoPlayer 
-          submissionId={selectedVideo.submissionId} 
-          studentName={selectedVideo.name} 
+        <VideoPlayer
+          submissionId={selectedVideo.submissionId}
+          studentName={selectedVideo.name}
           signedUrl={preloadVideoUrl || undefined}
           onClose={() => {
             setSelectedVideo(null);
             setPreloadVideoUrl(null);
-          }} 
+          }}
         />
       )}
 
@@ -683,12 +608,7 @@ export default function AdminSubmissions() {
                   {selectedScores.full_name} - Submission #{selectedScores.id}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSelectedScores(null)}
-                className="h-8 w-8"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setSelectedScores(null)} className="h-8 w-8">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -710,22 +630,16 @@ export default function AdminSubmissions() {
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-[#072F6B]">
-                                {score.score % 1 === 0 ? score.score : score.score.toFixed(1)}
-                              </span>
+                              <span className="text-lg font-bold text-[#072F6B]">{score.score % 1 === 0 ? score.score : score.score.toFixed(1)}</span>
                               <span className="text-xs text-gray-500">/ 10</span>
                             </div>
                             <p className="text-sm text-gray-700 mt-1">
-                              Judge: <span className="font-medium">
-                                {score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}
-                              </span>
+                              Judge: <span className="font-medium">{score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}</span>
                             </p>
                           </div>
                           <div className="text-xs text-gray-500 text-right">
                             <div>Created: {new Date(score.created_at).toLocaleString()}</div>
-                            {score.updated_at && score.updated_at !== score.created_at && (
-                              <div>Updated: {new Date(score.updated_at).toLocaleString()}</div>
-                            )}
+                            {score.updated_at && score.updated_at !== score.created_at && <div>Updated: {new Date(score.updated_at).toLocaleString()}</div>}
                           </div>
                         </div>
                         {score.description && (
@@ -738,9 +652,7 @@ export default function AdminSubmissions() {
                     ))}
                   </div>
                 ) : (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-500 text-sm">
-                    No Score A evaluations yet
-                  </div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-500 text-sm">No Score A evaluations yet</div>
                 )}
               </div>
 
@@ -759,22 +671,16 @@ export default function AdminSubmissions() {
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-[#072F6B]">
-                                {score.score % 1 === 0 ? score.score : score.score.toFixed(1)}
-                              </span>
+                              <span className="text-lg font-bold text-[#072F6B]">{score.score % 1 === 0 ? score.score : score.score.toFixed(1)}</span>
                               <span className="text-xs text-gray-500">/ 10</span>
                             </div>
                             <p className="text-sm text-gray-700 mt-1">
-                              Judge: <span className="font-medium">
-                                {score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}
-                              </span>
+                              Judge: <span className="font-medium">{score.judge_full_name || score.judge_name || score.judge_username || "Unknown"}</span>
                             </p>
                           </div>
                           <div className="text-xs text-gray-500 text-right">
                             <div>Created: {new Date(score.created_at).toLocaleString()}</div>
-                            {score.updated_at && score.updated_at !== score.created_at && (
-                              <div>Updated: {new Date(score.updated_at).toLocaleString()}</div>
-                            )}
+                            {score.updated_at && score.updated_at !== score.created_at && <div>Updated: {new Date(score.updated_at).toLocaleString()}</div>}
                           </div>
                         </div>
                         {score.description && (
@@ -787,9 +693,7 @@ export default function AdminSubmissions() {
                     ))}
                   </div>
                 ) : (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-500 text-sm">
-                    No Score B evaluations yet
-                  </div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-500 text-sm">No Score B evaluations yet</div>
                 )}
               </div>
 
@@ -808,17 +712,13 @@ export default function AdminSubmissions() {
 
             {/* Footer */}
             <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end">
-              <Button
-                onClick={() => setSelectedScores(null)}
-                variant="outline"
-              >
+              <Button onClick={() => setSelectedScores(null)} variant="outline">
                 Close
               </Button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

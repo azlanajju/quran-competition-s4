@@ -18,13 +18,12 @@ export async function GET(request: NextRequest) {
 
     try {
       // Get all unique submissions that this judge has scored with their scores
+      // Note: For judge view, we exclude phone, city, state for privacy
       const [submissionsWithScores] = (await connection.execute(
         `SELECT 
           vs.id as submission_id,
+          vs.student_id,
           s.full_name as student_name,
-          s.phone as student_phone,
-          s.city as student_city,
-          s.state as student_state,
           vs.created_at as submitted_at,
           js.score_type,
           js.score,
@@ -45,10 +44,8 @@ export async function GET(request: NextRequest) {
         if (!submissionMap.has(row.submission_id)) {
           submissionMap.set(row.submission_id, {
             submission_id: row.submission_id,
+            student_id: row.student_id,
             student_name: row.student_name,
-            student_phone: row.student_phone,
-            student_city: row.student_city,
-            student_state: row.student_state,
             submitted_at: row.submitted_at,
             score_a: null,
             score_b: null,
@@ -100,4 +97,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Failed to fetch evaluations", details: error.message }, { status: 500 });
   }
 }
-

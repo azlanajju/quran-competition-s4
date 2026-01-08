@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "10"); // Default to top 10
+    const limit = parseInt(searchParams.get("limit") || "50"); // Default to top 50
 
     const pool = getPool();
     const connection = await pool.getConnection();
@@ -46,29 +46,29 @@ export async function GET(request: NextRequest) {
           // Calculate average - use both scores if available, otherwise use single score
           let averageScore = null;
           if (scoreA && scoreB) {
-            const scoreAValue = typeof scoreA.score === 'string' ? parseFloat(scoreA.score) : scoreA.score;
-            const scoreBValue = typeof scoreB.score === 'string' ? parseFloat(scoreB.score) : scoreB.score;
+            const scoreAValue = typeof scoreA.score === "string" ? parseFloat(scoreA.score) : scoreA.score;
+            const scoreBValue = typeof scoreB.score === "string" ? parseFloat(scoreB.score) : scoreB.score;
             if (!isNaN(scoreAValue) && !isNaN(scoreBValue)) {
               const avg = (scoreAValue + scoreBValue) / 2;
               averageScore = avg % 1 === 0 ? avg : parseFloat(avg.toFixed(2));
             }
           } else if (scoreA) {
             // If only scoreA exists, use it as average
-            const scoreAValue = typeof scoreA.score === 'string' ? parseFloat(scoreA.score) : scoreA.score;
+            const scoreAValue = typeof scoreA.score === "string" ? parseFloat(scoreA.score) : scoreA.score;
             if (!isNaN(scoreAValue)) {
               averageScore = scoreAValue % 1 === 0 ? scoreAValue : parseFloat(scoreAValue.toFixed(2));
             }
           } else if (scoreB) {
             // If only scoreB exists, use it as average
-            const scoreBValue = typeof scoreB.score === 'string' ? parseFloat(scoreB.score) : scoreB.score;
+            const scoreBValue = typeof scoreB.score === "string" ? parseFloat(scoreB.score) : scoreB.score;
             if (!isNaN(scoreBValue)) {
               averageScore = scoreBValue % 1 === 0 ? scoreBValue : parseFloat(scoreBValue.toFixed(2));
             }
           }
 
           // Safely convert scores to numbers
-          const scoreAValue = scoreA ? (typeof scoreA.score === 'string' ? parseFloat(scoreA.score) : scoreA.score) : null;
-          const scoreBValue = scoreB ? (typeof scoreB.score === 'string' ? parseFloat(scoreB.score) : scoreB.score) : null;
+          const scoreAValue = scoreA ? (typeof scoreA.score === "string" ? parseFloat(scoreA.score) : scoreA.score) : null;
+          const scoreBValue = scoreB ? (typeof scoreB.score === "string" ? parseFloat(scoreB.score) : scoreB.score) : null;
 
           return {
             submission_id: submission.submission_id,
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       );
 
       // Filter out entries without scores and sort by average score (descending)
-      const rankedEntries = leaderboardEntries
+      const sortedEntries = leaderboardEntries
         .filter((entry) => entry.averageScore !== null)
         .sort((a, b) => {
           // Sort by average score descending
@@ -96,17 +96,30 @@ export async function GET(request: NextRequest) {
           if (b.averageScore! < a.averageScore!) return -1;
           // If scores are equal, sort by submission date (earlier is better)
           return new Date(a.submission_date).getTime() - new Date(b.submission_date).getTime();
-        })
-        .map((entry, index) => ({
-          ...entry,
-          rank: index + 1,
-        }))
-        .slice(0, limit); // Limit results
+        });
+
+      // Get top 50 entries
+      const top50 = sortedEntries.slice(0, limit);
+
+      // If we have exactly 50 entries, check if there are more with the same score as the 50th entry
+      let rankedEntries = top50;
+      if (sortedEntries.length >= limit && top50.length === limit) {
+        const scoreAt50 = top50[limit - 1].averageScore;
+        // Include all entries that have the same score as the 50th entry
+        const additionalEntries = sortedEntries.slice(limit).filter((entry) => entry.averageScore === scoreAt50);
+        rankedEntries = [...top50, ...additionalEntries];
+      }
+
+      // Assign ranks
+      const finalEntries = rankedEntries.map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+      }));
 
       return NextResponse.json({
         success: true,
-        leaderboard: rankedEntries,
-        total: rankedEntries.length,
+        leaderboard: finalEntries,
+        total: finalEntries.length,
       });
     } finally {
       connection.release();
@@ -116,4 +129,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch leaderboard", details: error.message }, { status: 500 });
   }
 }
-

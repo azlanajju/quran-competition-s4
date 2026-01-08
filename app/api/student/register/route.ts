@@ -14,6 +14,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Missing required fields: ${missingFields.join(", ")}` }, { status: 400 });
     }
 
+    // Validate age: must be between 10 and 16 years
+    // Competition dates: Registration Jan 10-20, 2026, Finale Jan 28, 2026
+    // Must be 10 years old by Jan 9, 2026 (birthdate on or before Jan 9, 2016)
+    // Must not turn 17 before Jan 30, 2026 (birthdate on or after Jan 30, 2009)
+    if (body.dateOfBirth) {
+      const birthDate = new Date(body.dateOfBirth);
+      const minDate = new Date("2016-01-09"); // Latest birthdate to be 10 by Jan 9, 2026
+      const maxDate = new Date("2009-01-30"); // Earliest birthdate to be 16y 11m 29d on Jan 29, 2026
+
+      // Birthdate must be on or before Jan 9, 2016 (at least 10 years old by Jan 9, 2026)
+      // Birthdate must be on or after Jan 30, 2009 (not yet 17 on Jan 29, 2026)
+      if (birthDate > minDate || birthDate < maxDate) {
+        return NextResponse.json({ error: "Age must be between 10 and 16 years. You must be 10 years old by January 9, 2026 and not turn 17 before January 30, 2026." }, { status: 400 });
+      }
+    }
+
     const pool = getPool();
     const connection = await pool.getConnection();
 
@@ -26,22 +42,20 @@ export async function POST(request: NextRequest) {
         const studentId = existingStudent.id;
 
         // Check if student has any video submissions
-        const [videoSubmissions] = (await connection.execute(
-          `SELECT id, original_video_key FROM video_submissions WHERE student_id = ? LIMIT 1`,
-          [studentId]
-        )) as any[];
+        const [videoSubmissions] = (await connection.execute(`SELECT id, original_video_key FROM video_submissions WHERE student_id = ? LIMIT 1`, [studentId])) as any[];
 
         const hasVideo = videoSubmissions.length > 0 && videoSubmissions[0].original_video_key;
 
-        return NextResponse.json({
-          error: "A registration with this phone number already exists.",
-          duplicate: true,
-          studentId: studentId,
-          hasVideo: !!hasVideo,
-          message: hasVideo
-            ? "A registration with this phone number already exists and has a video submission."
-            : "A registration with this phone number already exists. Would you like to upload only the video?",
-        }, { status: 409 });
+        return NextResponse.json(
+          {
+            error: "A registration with this phone number already exists.",
+            duplicate: true,
+            studentId: studentId,
+            hasVideo: !!hasVideo,
+            message: hasVideo ? "A registration with this phone number already exists and has a video submission." : "A registration with this phone number already exists. Would you like to upload only the video?",
+          },
+          { status: 409 }
+        );
       }
 
       // Insert student registration (address fields are optional)
@@ -50,15 +64,7 @@ export async function POST(request: NextRequest) {
           full_name, phone, date_of_birth, city, state, 
           id_card_key, id_card_url, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted')`,
-        [
-          body.fullName, 
-          body.phone, 
-          body.dateOfBirth, 
-          body.city || null, 
-          body.state || null, 
-          body.idCardKey, 
-          body.idCardUrl || `s3://${process.env.AWS_S3_BUCKET_NAME}/${body.idCardKey}`
-        ]
+        [body.fullName, body.phone, body.dateOfBirth, body.city || null, body.state || null, body.idCardKey, body.idCardUrl || `s3://${process.env.AWS_S3_BUCKET_NAME}/${body.idCardKey}`]
       );
 
       const insertResult = result as any;

@@ -14,6 +14,9 @@ interface Judge {
   username: string;
   full_name: string;
   is_active: boolean;
+  score_type: "A" | "B" | null;
+  sequence_from: number | null;
+  sequence_to: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +33,9 @@ export default function AdminJudges() {
     password: "",
     fullName: "",
     isActive: true,
+    scoreType: "" as "A" | "B" | "",
+    sequenceFrom: "",
+    sequenceTo: "",
   });
 
   useEffect(() => {
@@ -85,6 +91,9 @@ export default function AdminJudges() {
         password: "",
         fullName: judge.full_name,
         isActive: judge.is_active,
+        scoreType: judge.score_type || "",
+        sequenceFrom: judge.sequence_from?.toString() || "",
+        sequenceTo: judge.sequence_to?.toString() || "",
       });
     } else {
       setEditingJudge(null);
@@ -93,6 +102,9 @@ export default function AdminJudges() {
         password: "",
         fullName: "",
         isActive: true,
+        scoreType: "",
+        sequenceFrom: "",
+        sequenceTo: "",
       });
     }
     setShowModal(true);
@@ -108,6 +120,9 @@ export default function AdminJudges() {
       password: "",
       fullName: "",
       isActive: true,
+      scoreType: "",
+      sequenceFrom: "",
+      sequenceTo: "",
     });
     setError("");
     setSuccess("");
@@ -126,6 +141,9 @@ export default function AdminJudges() {
         username: formData.username,
         fullName: formData.fullName,
         isActive: formData.isActive,
+        scoreType: formData.scoreType || null,
+        sequenceFrom: formData.sequenceFrom || null,
+        sequenceTo: formData.sequenceTo || null,
       };
 
       if (editingJudge) {
@@ -250,6 +268,8 @@ export default function AdminJudges() {
                   <tr>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Username</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Score Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Sequence Range</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
@@ -260,6 +280,22 @@ export default function AdminJudges() {
                       <tr key={judge.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{judge.username}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{judge.full_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {judge.score_type ? (
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${judge.score_type === "A" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}>
+                              Score {judge.score_type}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">Both A & B</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {judge.sequence_from !== null && judge.sequence_to !== null ? (
+                            <span>S-{String(judge.sequence_from).padStart(2, "0")} to S-{String(judge.sequence_to).padStart(2, "0")}</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">All</span>
+                          )}
+                        </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -306,6 +342,20 @@ export default function AdminJudges() {
                       <div className="flex-1">
                         <div className="text-sm font-semibold text-gray-900">{judge.full_name}</div>
                         <div className="text-xs text-gray-600 mt-1">@{judge.username}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {judge.score_type ? (
+                            <span className={`px-1.5 py-0.5 rounded ${judge.score_type === "A" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}>
+                              Score {judge.score_type}
+                            </span>
+                          ) : (
+                            <span>Both A & B</span>
+                          )}
+                        </div>
+                        {judge.sequence_from !== null && judge.sequence_to !== null && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Range: S-{String(judge.sequence_from).padStart(2, "0")} to S-{String(judge.sequence_to).padStart(2, "0")}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-500 mt-1">
                           Created: {new Date(judge.created_at).toLocaleDateString()}
                         </div>
@@ -400,6 +450,47 @@ export default function AdminJudges() {
                   required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Score Type</label>
+                <select
+                  value={formData.scoreType}
+                  onChange={(e) => setFormData({ ...formData, scoreType: e.target.value as "A" | "B" | "" })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
+                >
+                  <option value="">Both A & B (No restriction)</option>
+                  <option value="A">Score A Only</option>
+                  <option value="B">Score B Only</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Select the score type this judge can evaluate</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sequence From</label>
+                  <input
+                    type="number"
+                    value={formData.sequenceFrom}
+                    onChange={(e) => setFormData({ ...formData, sequenceFrom: e.target.value })}
+                    min="1"
+                    placeholder="e.g., 1"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Student ID start</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sequence To</label>
+                  <input
+                    type="number"
+                    value={formData.sequenceTo}
+                    onChange={(e) => setFormData({ ...formData, sequenceTo: e.target.value })}
+                    min="1"
+                    placeholder="e.g., 100"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#072F6B] focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Student ID end</p>
+                </div>
               </div>
 
               {editingJudge && (
