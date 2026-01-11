@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get("dateTo");
     const state = searchParams.get("state");
     const city = searchParams.get("city");
+    const noSubmissions = searchParams.get("noSubmissions") === "true";
 
     const offset = (page - 1) * limit;
 
@@ -73,13 +74,29 @@ export async function GET(request: NextRequest) {
       }
 
       // Get total count
-      const [countResult] = (await connection.execute(`SELECT COUNT(DISTINCT s.id) as total FROM students s WHERE ${whereClause}`, params)) as any[];
-
-      const total = countResult[0]?.total || 0;
+      let total = 0;
+      if (noSubmissions) {
+        // For no submissions filter, we need to count students with no video submissions
+        const [countResult] = (await connection.execute(
+          `SELECT COUNT(DISTINCT s.id) as total 
+           FROM students s 
+           LEFT JOIN video_submissions vs ON s.id = vs.student_id 
+           WHERE ${whereClause}
+           GROUP BY s.id
+           HAVING COUNT(vs.id) = 0`,
+          params
+        )) as any[];
+        total = countResult.length;
+      } else {
+        const [countResult] = (await connection.execute(
+          `SELECT COUNT(DISTINCT s.id) as total FROM students s WHERE ${whereClause}`,
+          params
+        )) as any[];
+        total = countResult[0]?.total || 0;
+      }
 
       // Get students with video submission info (including latest submission ID)
-      const [students] = (await connection.execute(
-        `SELECT s.*, 
+      let studentsQuery = `SELECT s.*, 
          COUNT(vs.id) as video_count,
          MAX(vs.created_at) as last_video_date,
          MAX(vs.id) as latest_submission_id,
@@ -88,11 +105,15 @@ export async function GET(request: NextRequest) {
          FROM students s
          LEFT JOIN video_submissions vs ON s.id = vs.student_id
          WHERE ${whereClause}
-         GROUP BY s.id
-         ORDER BY s.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
-      )) as any[];
+         GROUP BY s.id`;
+      
+      if (noSubmissions) {
+        studentsQuery += ` HAVING COUNT(vs.id) = 0`;
+      }
+      
+      studentsQuery += ` ORDER BY s.created_at DESC LIMIT ? OFFSET ?`;
+      
+      const [students] = (await connection.execute(studentsQuery, [...params, limit, offset])) as any[];
 
       return NextResponse.json({
         success: true,

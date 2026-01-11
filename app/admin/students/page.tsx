@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import VideoPlayer from "@/components/VideoPlayer";
 import { formatStudentId } from "@/lib/utils";
-import { ArrowLeft, Calendar, Eye, FileText, Play, X } from "lucide-react";
+import { ArrowLeft, Calendar, Download, Eye, FileText, Play, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -40,6 +40,7 @@ export default function AdminStudents() {
   const [dateTo, setDateTo] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
+  const [noSubmissionsFilter, setNoSubmissionsFilter] = useState(false);
   const [availableStates, setAvailableStates] = useState<string[]>([]);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [selectedIdCard, setSelectedIdCard] = useState<{ studentId: number; signedUrl: string; fileName: string } | null>(null);
@@ -47,6 +48,7 @@ export default function AdminStudents() {
   const [selectedVideo, setSelectedVideo] = useState<{ submissionId: number; name: string } | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [preloadVideoUrl, setPreloadVideoUrl] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -106,7 +108,7 @@ export default function AdminStudents() {
     if (!checkingAuth) {
       fetchStudents();
     }
-  }, [page, statusFilter, search, dateFrom, dateTo, stateFilter, cityFilter, checkingAuth]);
+  }, [page, statusFilter, search, dateFrom, dateTo, stateFilter, cityFilter, noSubmissionsFilter, checkingAuth]);
 
   const fetchStudents = async () => {
     try {
@@ -121,6 +123,7 @@ export default function AdminStudents() {
       if (dateTo) params.append("dateTo", dateTo);
       if (stateFilter) params.append("state", stateFilter);
       if (cityFilter) params.append("city", cityFilter);
+      if (noSubmissionsFilter) params.append("noSubmissions", "true");
 
       const response = await fetch(`/api/admin/students?${params}`);
       const data = await response.json();
@@ -207,7 +210,66 @@ export default function AdminStudents() {
     setDateTo("");
     setStateFilter("");
     setCityFilter("");
+    setNoSubmissionsFilter(false);
     setPage(1);
+  };
+
+  const exportToExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams({
+        limit: "10000", // Get all records for export
+      });
+      if (statusFilter) params.append("status", statusFilter);
+      if (search) params.append("search", search);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      if (stateFilter) params.append("state", stateFilter);
+      if (cityFilter) params.append("city", cityFilter);
+      if (noSubmissionsFilter) params.append("noSubmissions", "true");
+
+      const response = await fetch(`/api/admin/students?${params}`);
+      const data = await response.json();
+
+      if (data.success && data.students) {
+        // Import xlsx dynamically
+        const XLSX = await import("xlsx");
+
+        // Prepare data for Excel
+        const excelData = data.students.map((student: Student) => ({
+          "Student ID": formatStudentId(student.id),
+          "Full Name": student.full_name,
+          "Phone": student.phone,
+          "Date of Birth": new Date(student.date_of_birth).toLocaleDateString(),
+          "City": student.city || "",
+          "State": student.state || "",
+          "Status": student.status,
+          "Video Count": student.video_count || 0,
+          "Last Video Date": student.last_video_date ? new Date(student.last_video_date).toLocaleDateString() : "",
+          "Registered Date": new Date(student.created_at).toLocaleDateString(),
+          "Registered Time": new Date(student.created_at).toLocaleTimeString(),
+        }));
+
+        // Create workbook and worksheet
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+
+        // Generate filename with current date
+        const dateStr = new Date().toISOString().split("T")[0];
+        const filename = `students_${dateStr}.xlsx`;
+
+        // Write file
+        XLSX.writeFile(workbook, filename);
+      } else {
+        alert("Failed to fetch students data for export");
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      alert("Failed to export to Excel");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (checkingAuth) {
@@ -229,13 +291,26 @@ export default function AdminStudents() {
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">Student Registrations</h1>
               <p className="text-sm sm:text-base text-gray-600">Manage and review student registrations</p>
             </div>
-            <Link href="/admin">
-              <Button variant="outline" className="gap-2 w-full sm:w-auto">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back to Dashboard</span>
-                <span className="sm:hidden">Back</span>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button onClick={exportToExcel} disabled={isExporting || loading} variant="default" className="gap-2 w-full sm:w-auto bg-[#072F6B] hover:bg-[#0B1A3A]">
+                <Download className="h-4 w-4" />
+                {isExporting ? (
+                  <span className="hidden sm:inline">Exporting...</span>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Export to Excel</span>
+                    <span className="sm:hidden">Export</span>
+                  </>
+                )}
               </Button>
-            </Link>
+              <Link href="/admin">
+                <Button variant="outline" className="gap-2 w-full sm:w-auto">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Back to Dashboard</span>
+                  <span className="sm:hidden">Back</span>
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Filters */}
@@ -352,8 +427,26 @@ export default function AdminStudents() {
                     )}
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Filter Options</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="noSubmissionsFilter"
+                      checked={noSubmissionsFilter}
+                      onChange={(e) => {
+                        setNoSubmissionsFilter(e.target.checked);
+                        setPage(1);
+                      }}
+                      className="h-4 w-4 text-[#072F6B] focus:ring-[#072F6B] border-gray-300 rounded"
+                    />
+                    <label htmlFor="noSubmissionsFilter" className="text-sm text-gray-700 cursor-pointer">
+                      No Submissions Only
+                    </label>
+                  </div>
+                </div>
                 <div className="flex items-end">
-                  {(search || statusFilter || stateFilter || cityFilter || dateFrom || dateTo) && (
+                  {(search || statusFilter || stateFilter || cityFilter || dateFrom || dateTo || noSubmissionsFilter) && (
                     <Button onClick={clearAllFilters} variant="outline" className="w-full" title="Clear all filters">
                       <X className="h-4 w-4 mr-2" />
                       Clear All Filters
