@@ -10,10 +10,16 @@ import VideoUpload from "@/components/VideoUpload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import * as z from "zod";
+
+// Registration deadline: January 21, 2026 at 12:00 AM (midnight) IST
+// 20th is the last day, registration closes when 21st begins
+// IST is UTC+5:30, so midnight IST on Jan 21 = 6:30 PM UTC on Jan 20
+const REGISTRATION_DEADLINE = new Date("2026-01-20T18:30:00.000Z");
+
 
 // Form validation schema - all fields are mandatory
 const registrationSchema = z.object({
@@ -40,6 +46,155 @@ const registrationSchema = z.object({
 
 type RegistrationFormData = z.infer<typeof registrationSchema>;
 
+// Countdown timer component
+function CountdownTimer({ deadline, onExpire }: { deadline: Date; onExpire: () => void }) {
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const target = deadline.getTime();
+      const difference = target - now;
+
+      if (difference <= 0) {
+        setIsExpired(true);
+        onExpire();
+        return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+      }
+
+      return {
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((difference % (1000 * 60)) / 1000),
+      };
+    };
+
+    // Initial calculation
+    setTimeLeft(calculateTimeLeft());
+
+    // Update every second
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [deadline, onExpire]);
+
+  if (isExpired) {
+    return null;
+  }
+
+  const TimeBlock = ({ value, label }: { value: number; label: string }) => (
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        <div className="bg-gradient-to-br from-[#1a3a5f] to-[#0A1F3D] rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 min-w-[60px] sm:min-w-[70px] md:min-w-[80px] border border-[#D4AF37]/30 shadow-lg shadow-[#D4AF37]/10">
+          <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#F2D27A] to-[#D4AF37] bg-clip-text text-transparent tabular-nums">
+            {String(value).padStart(2, "0")}
+          </span>
+        </div>
+        {/* Decorative shine effect */}
+        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/10 rounded-lg sm:rounded-xl pointer-events-none" />
+      </div>
+      <span className="text-[10px] sm:text-xs md:text-sm text-[#C7D1E0] mt-1 sm:mt-2 font-medium uppercase tracking-wider">{label}</span>
+    </div>
+  );
+
+  const Separator = () => (
+    <div className="flex flex-col justify-center items-center gap-1 sm:gap-2 pb-4 sm:pb-6">
+      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#D4AF37] animate-pulse" />
+      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#D4AF37] animate-pulse" />
+    </div>
+  );
+
+  return (
+    <div className="bg-gradient-to-br from-[#0A1F3D]/80 to-[#1a3a5f]/80 backdrop-blur-md rounded-xl sm:rounded-2xl border-2 border-[#D4AF37]/40 p-4 sm:p-6 md:p-8 shadow-2xl shadow-[#D4AF37]/20">
+      <div className="text-center mb-4 sm:mb-6">
+        <div className="inline-flex items-center gap-2 mb-2 sm:mb-3">
+          <span className="text-xl sm:text-2xl">⏰</span>
+          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-[#FFFFFF]">Registration Closes In</h3>
+        </div>
+        <p className="text-xs sm:text-sm text-[#C7D1E0]/80">Hurry! Don&apos;t miss your chance to participate</p>
+      </div>
+      
+      <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4">
+        <TimeBlock value={timeLeft.days} label="Days" />
+        <Separator />
+        <TimeBlock value={timeLeft.hours} label="Hours" />
+        <Separator />
+        <TimeBlock value={timeLeft.minutes} label="Minutes" />
+        <Separator />
+        <TimeBlock value={timeLeft.seconds} label="Seconds" />
+      </div>
+
+      <div className="mt-4 sm:mt-6 text-center">
+        <p className="text-xs sm:text-sm text-[#D4AF37] font-medium">
+          Deadline: January 20, 2026 at 11:59 PM IST
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Registration closed component
+function RegistrationClosed() {
+  const router = useRouter();
+  
+  return (
+    <div className="min-h-screen islamic-pattern relative overflow-hidden flex flex-col" style={{ background: "linear-gradient(135deg,rgb(16, 31, 56) 0%,rgb(0, 0, 0) 50%,rgb(20, 47, 86) 100%)" }}>
+      <Header />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="container mx-auto px-4 pt-24 pb-12">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="bg-gradient-to-br from-[#0A1F3D]/90 to-[#1a3a5f]/90 backdrop-blur-md rounded-2xl border-2 border-[#D4AF37]/40 p-8 sm:p-12 shadow-2xl">
+              <div className="text-6xl sm:text-7xl mb-6">🕌</div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#FFFFFF] mb-4">
+                Registration <span className="bg-gradient-to-r from-[#D4AF37] via-[#F2D27A] to-[#D4AF37] bg-clip-text text-transparent">Closed</span>
+              </h1>
+              <p className="text-lg sm:text-xl text-[#C7D1E0] mb-6">
+                The registration period for Qiraat Competition Season-4 has ended.
+              </p>
+              <p className="text-sm sm:text-base text-[#C7D1E0]/80 mb-6">
+                Thank you for your interest. Stay tuned for future competitions!
+              </p>
+              
+              {/* Contact Info */}
+              <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-[#D4AF37]/20 p-4 sm:p-6 mb-8">
+                <p className="text-sm sm:text-base text-[#C7D1E0] mb-2">
+                  For more information, contact us:
+                </p>
+                <a 
+                  href="tel:9187415100" 
+                  className="inline-flex items-center gap-2 text-lg sm:text-xl font-semibold text-[#D4AF37] hover:text-[#F2D27A] transition-colors"
+                >
+                  <span>📞</span>
+                  <span>9187415100</span>
+                </a>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  onClick={() => router.push("/")}
+                  className="bg-[#D4AF37]/20 backdrop-blur-sm border-2 border-[#D4AF37] text-[#FFFFFF] hover:bg-[#D4AF37]/30 font-semibold px-8 py-3 rounded-xl transition-all duration-300"
+                >
+                  Go to Home
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
 export default function StudentRegistration() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
@@ -65,8 +220,22 @@ export default function StudentRegistration() {
     hasVideo: boolean;
     message: string;
   } | null>(null);
+  const [registrationClosed, setRegistrationClosed] = useState(false);
 
   const router = useRouter();
+  
+  // Check if registration is already closed on mount
+  useEffect(() => {
+    const now = new Date().getTime();
+    if (now >= REGISTRATION_DEADLINE.getTime()) {
+      setRegistrationClosed(true);
+    }
+  }, []);
+
+  // Handler for when countdown expires
+  const handleCountdownExpire = useCallback(() => {
+    setRegistrationClosed(true);
+  }, []);
   const {
     register,
     handleSubmit,
@@ -518,6 +687,11 @@ export default function StudentRegistration() {
     }
   };
 
+  // Show registration closed screen if deadline has passed
+  if (registrationClosed) {
+    return <RegistrationClosed />;
+  }
+
   return (
     <>
       {/* Upload Progress Overlay */}
@@ -599,6 +773,11 @@ export default function StudentRegistration() {
               <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
                 <div className="bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[#D4AF37] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">Age: 10-16 Years</div>
                 <div className="bg-[#4CAF50]/20 border border-[#4CAF50]/50 text-[#4CAF50] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">Registration: Jan 10-20, 2026</div>
+              </div>
+
+              {/* Countdown Timer */}
+              <div className="mb-6 sm:mb-8">
+                <CountdownTimer deadline={REGISTRATION_DEADLINE} onExpire={handleCountdownExpire} />
               </div>
 
               {/* Information Banner */}
