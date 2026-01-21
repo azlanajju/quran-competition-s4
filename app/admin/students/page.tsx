@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import VideoPlayer from "@/components/VideoPlayer";
 import { formatStudentId } from "@/lib/utils";
-import { ArrowLeft, Calendar, Download, Eye, FileText, Play, X } from "lucide-react";
+import { ArrowLeft, Calendar, Download, Eye, FileText, Play, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -49,6 +49,14 @@ export default function AdminStudents() {
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [preloadVideoUrl, setPreloadVideoUrl] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Video upload state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadingForStudent, setUploadingForStudent] = useState<Student | null>(null);
+  const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStep, setUploadStep] = useState("");
 
   useEffect(() => {
     // Check authentication
@@ -201,6 +209,119 @@ export default function AdminStudents() {
     setDateFrom("");
     setDateTo("");
     setPage(1);
+  };
+
+  // Open upload modal for a student
+  const openUploadModal = (student: Student) => {
+    setUploadingForStudent(student);
+    setUploadVideoFile(null);
+    setUploadProgress(0);
+    setUploadStep("");
+    setShowUploadModal(true);
+  };
+
+  // Close upload modal
+  const closeUploadModal = () => {
+    if (!isUploadingVideo) {
+      setShowUploadModal(false);
+      setUploadingForStudent(null);
+      setUploadVideoFile(null);
+      setUploadProgress(0);
+      setUploadStep("");
+    }
+  };
+
+  // Upload video for student
+  const handleVideoUpload = async () => {
+    if (!uploadingForStudent || !uploadVideoFile) return;
+
+    setIsUploadingVideo(true);
+    setUploadProgress(0);
+    setUploadStep("Getting upload URL...");
+
+    try {
+      // Step 1: Get presigned URL
+      const presignedUrlResponse = await fetch("/api/video/presigned-upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: uploadingForStudent.id.toString(),
+          fileName: uploadVideoFile.name,
+          fileType: uploadVideoFile.type,
+          fileSize: uploadVideoFile.size,
+        }),
+      });
+
+      if (!presignedUrlResponse.ok) {
+        const errorData = await presignedUrlResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get upload URL");
+      }
+
+      const { presignedUrl, videoKey } = await presignedUrlResponse.json();
+      setUploadStep("Uploading video...");
+
+      // Step 2: Upload to S3
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable && e.total > 0) {
+            const progress = Math.min(100, Math.max(0, (e.loaded / e.total) * 100));
+            setUploadProgress(Math.round(progress));
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        });
+
+        xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
+        xhr.addEventListener("abort", () => reject(new Error("Upload aborted")));
+
+        xhr.open("PUT", presignedUrl);
+        xhr.setRequestHeader("Content-Type", uploadVideoFile.type || "video/mp4");
+        xhr.send(uploadVideoFile);
+      });
+
+      setUploadStep("Finalizing...");
+
+      // Step 3: Notify server
+      const uploadCompleteResponse = await fetch("/api/video/upload-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: uploadingForStudent.id.toString(),
+          videoKey: videoKey,
+        }),
+      });
+
+      if (!uploadCompleteResponse.ok) {
+        const errorData = await uploadCompleteResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to complete upload");
+      }
+
+      setUploadStep("Complete!");
+      setUploadProgress(100);
+
+      // Refresh students list
+      await fetchStudents();
+
+      // Close modal after short delay
+      setTimeout(() => {
+        closeUploadModal();
+        setIsUploadingVideo(false);
+      }, 1500);
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert(error instanceof Error ? error.message : "Failed to upload video");
+      setIsUploadingVideo(false);
+      setUploadStep("");
+      setUploadProgress(0);
+    }
   };
 
   const clearAllFilters = () => {
@@ -498,10 +619,15 @@ export default function AdminStudents() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-gray-900">{student.video_count || 0}</span>
-                              {student.latest_submission_id && student.video_count > 0 && (
+                              {student.latest_submission_id && student.video_count > 0 ? (
                                 <Button onClick={() => openVideo(student.latest_submission_id!, student.full_name)} disabled={isLoadingVideo} variant="outline" size="sm" className="gap-1.5">
                                   <Play className="h-3.5 w-3.5" />
                                   View Video
+                                </Button>
+                              ) : (
+                                <Button onClick={() => openUploadModal(student)} variant="outline" size="sm" className="gap-1.5 text-orange-600 hover:text-orange-700 hover:border-orange-300">
+                                  <Upload className="h-3.5 w-3.5" />
+                                  Upload
                                 </Button>
                               )}
                             </div>
@@ -567,10 +693,15 @@ export default function AdminStudents() {
                       </div>
 
                       <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-                        {student.latest_submission_id && student.video_count > 0 && (
+                        {student.latest_submission_id && student.video_count > 0 ? (
                           <Button onClick={() => openVideo(student.latest_submission_id!, student.full_name)} disabled={isLoadingVideo} variant="outline" size="sm" className="w-full gap-1.5">
                             <Play className="h-3.5 w-3.5" />
                             View Video
+                          </Button>
+                        ) : (
+                          <Button onClick={() => openUploadModal(student)} variant="outline" size="sm" className="w-full gap-1.5 text-orange-600 hover:text-orange-700 hover:border-orange-300">
+                            <Upload className="h-3.5 w-3.5" />
+                            Upload Video
                           </Button>
                         )}
                         {student.id_card_key ? (
@@ -699,6 +830,86 @@ export default function AdminStudents() {
                     <div className="relative w-full h-full flex items-center justify-center">
                       <img src={selectedIdCard.signedUrl} alt="ID Card" className="max-w-full max-h-full object-contain rounded-lg" />
                     </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Video Upload Modal */}
+          {showUploadModal && uploadingForStudent && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+              <div className="relative w-full max-w-md bg-white rounded-xl border-2 border-gray-200 shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Upload Video</h3>
+                    <p className="text-sm text-gray-600">
+                      {formatStudentId(uploadingForStudent.id)} - {uploadingForStudent.full_name}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={closeUploadModal} disabled={isUploadingVideo} className="h-8 w-8">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  {!isUploadingVideo ? (
+                    <>
+                      {/* File Input */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Video File</label>
+                        <div className="relative">
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={(e) => setUploadVideoFile(e.target.files?.[0] || null)}
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#072F6B] file:text-white hover:file:bg-[#0B1A3A] cursor-pointer"
+                          />
+                        </div>
+                        {uploadVideoFile && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p className="text-sm text-gray-700 font-medium">{uploadVideoFile.name}</p>
+                            <p className="text-xs text-gray-500">{(uploadVideoFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-3">
+                        <Button onClick={handleVideoUpload} disabled={!uploadVideoFile} className="flex-1 bg-[#072F6B] hover:bg-[#0B1A3A] text-white gap-2">
+                          <Upload className="h-4 w-4" />
+                          Upload Video
+                        </Button>
+                        <Button onClick={closeUploadModal} variant="outline">
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Upload Progress */}
+                      <div className="text-center">
+                        <div className="mb-4">
+                          <div className="text-4xl mb-2">{uploadProgress === 100 ? "✅" : "📤"}</div>
+                          <p className="text-sm font-medium text-gray-700">{uploadStep}</p>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${uploadProgress === 100 ? "bg-green-500" : "bg-[#072F6B]"}`}
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600">{uploadProgress}%</p>
+                        
+                        {uploadProgress < 100 && (
+                          <p className="text-xs text-gray-500 mt-4">Please do not close this window</p>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

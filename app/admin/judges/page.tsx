@@ -19,6 +19,8 @@ interface Judge {
   sequence_to: number | null;
   created_at: string;
   updated_at: string;
+  total_assigned: number;
+  total_scored: number;
 }
 
 export default function AdminJudges() {
@@ -270,6 +272,7 @@ export default function AdminJudges() {
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Score Type</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Sequence Range</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Progress</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
@@ -294,6 +297,37 @@ export default function AdminJudges() {
                             <span>S-{String(judge.sequence_from).padStart(2, "0")} to S-{String(judge.sequence_to).padStart(2, "0")}</span>
                           ) : (
                             <span className="text-xs text-gray-400">All</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {judge.sequence_from !== null && judge.sequence_to !== null ? (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold ${
+                                  judge.total_assigned > 0 && judge.total_scored === judge.total_assigned
+                                    ? "text-green-600"
+                                    : judge.total_scored > 0
+                                    ? "text-blue-600"
+                                    : "text-gray-600"
+                                }`}>
+                                  {judge.total_scored}/{judge.total_assigned}
+                                </span>
+                              </div>
+                              {judge.total_assigned > 0 && (
+                                <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      judge.total_scored === judge.total_assigned
+                                        ? "bg-green-500"
+                                        : "bg-blue-500"
+                                    }`}
+                                    style={{ width: `${Math.min(100, (judge.total_scored / judge.total_assigned) * 100)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">N/A</span>
                           )}
                         </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -352,9 +386,35 @@ export default function AdminJudges() {
                           )}
                         </div>
                         {judge.sequence_from !== null && judge.sequence_to !== null && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Range: S-{String(judge.sequence_from).padStart(2, "0")} to S-{String(judge.sequence_to).padStart(2, "0")}
-                          </div>
+                          <>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Range: S-{String(judge.sequence_from).padStart(2, "0")} to S-{String(judge.sequence_to).padStart(2, "0")}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-gray-500">Progress:</span>
+                              <span className={`text-xs font-semibold ${
+                                judge.total_assigned > 0 && judge.total_scored === judge.total_assigned
+                                  ? "text-green-600"
+                                  : judge.total_scored > 0
+                                  ? "text-blue-600"
+                                  : "text-gray-600"
+                              }`}>
+                                {judge.total_scored}/{judge.total_assigned}
+                              </span>
+                              {judge.total_assigned > 0 && (
+                                <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      judge.total_scored === judge.total_assigned
+                                        ? "bg-green-500"
+                                        : "bg-blue-500"
+                                    }`}
+                                    style={{ width: `${Math.min(100, (judge.total_scored / judge.total_assigned) * 100)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </>
                         )}
                         <div className="text-xs text-gray-500 mt-1">
                           Created: {new Date(judge.created_at).toLocaleDateString()}

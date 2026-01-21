@@ -2,7 +2,7 @@ import { getPool } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 
-// GET: List all judges
+// GET: List all judges with scoring progress
 export async function GET(request: NextRequest) {
   try {
     const pool = getPool();
@@ -15,9 +15,72 @@ export async function GET(request: NextRequest) {
          ORDER BY created_at DESC`
       )) as any[];
 
+      // For each judge, calculate their scoring progress
+      const judgesWithProgress = await Promise.all(
+        (judges || []).map(async (judge: any) => {
+          let totalAssigned = 0;
+          let totalScored = 0;
+
+          // Only calculate if judge has a sequence range assigned
+          if (judge.sequence_from !== null && judge.sequence_to !== null) {
+            // Count total submissions within the judge's assigned range
+            // The student_id corresponds to sequence number
+            const [totalResult] = (await connection.execute(
+              `SELECT COUNT(DISTINCT vs.id) as total
+               FROM video_submissions vs
+               JOIN students s ON vs.student_id = s.id
+               WHERE s.id >= ? AND s.id <= ?
+               AND vs.processing_status = 'completed'`,
+              [judge.sequence_from, judge.sequence_to]
+            )) as any[];
+            
+            totalAssigned = totalResult[0]?.total || 0;
+
+            // Count how many submissions this judge has scored within their range
+            // A submission is considered "scored" by this judge if they have given at least one score (A or B)
+            // If judge has a specific score_type, only count that type
+            if (judge.score_type) {
+              // Judge can only give one type of score (A or B)
+              const [scoredResult] = (await connection.execute(
+                `SELECT COUNT(DISTINCT js.submission_id) as scored
+                 FROM judge_scores js
+                 JOIN video_submissions vs ON js.submission_id = vs.id
+                 JOIN students s ON vs.student_id = s.id
+                 WHERE js.judge_id = ?
+                 AND js.score_type = ?
+                 AND s.id >= ? AND s.id <= ?`,
+                [judge.id, judge.score_type, judge.sequence_from, judge.sequence_to]
+              )) as any[];
+              
+              totalScored = scoredResult[0]?.scored || 0;
+            } else {
+              // Judge can give both A and B scores
+              // Count as scored if they've given at least one score (A or B) for a submission
+              const [scoredResult] = (await connection.execute(
+                `SELECT COUNT(DISTINCT js.submission_id) as scored
+                 FROM judge_scores js
+                 JOIN video_submissions vs ON js.submission_id = vs.id
+                 JOIN students s ON vs.student_id = s.id
+                 WHERE js.judge_id = ?
+                 AND s.id >= ? AND s.id <= ?`,
+                [judge.id, judge.sequence_from, judge.sequence_to]
+              )) as any[];
+              
+              totalScored = scoredResult[0]?.scored || 0;
+            }
+          }
+
+          return {
+            ...judge,
+            total_assigned: totalAssigned,
+            total_scored: totalScored,
+          };
+        })
+      );
+
       return NextResponse.json({
         success: true,
-        judges: judges || [],
+        judges: judgesWithProgress,
       });
     } finally {
       connection.release();
